@@ -27,6 +27,7 @@ def index():
             # check if the room already exists in the database
             room_input = request.form.get("lobby")
             if db.session.query(Room).filter_by(room_name = room_input).first(): 
+                print("room already exists - cant create")
                 return render_template("index.html")
 
             # create room from form fields
@@ -54,18 +55,25 @@ def index():
             db.session.commit()
 
             session['username'] = username
+            print("creating room", room_input, "host username", username, "opp username", None)
             return redirect(url_for("create_lobby", lobby = room_input)) 
         elif 'joinSubmit' in request.form:
             room_input = request.form.get("lobby")
             username = request.form.get("username")
             session['username'] = username
             room_row = db.session.query(Room).filter_by(room_name = room_input).first()
-            if not room_row or room_row.opp_username:
+            if not room_row:
+                print("room doesn't exist")
+                return render_template("index.html")
+            if room_row.opp_username:
+                print("room is already full")
                 return render_template("index.html")
             room_row.opp_username = username
             db.session.commit()
+            print("joining room", room_input, "host username", room_row.host_username, "opp username", username)
             return redirect(url_for("create_lobby", lobby = room_input))
     else:
+        print("get request in /")
         return render_template("index.html")
 
 @app.route("/<lobby>", methods = ['GET', 'POST'])
@@ -80,6 +88,7 @@ def create_lobby(lobby):
     """
     room_row = db.session.query(Room).filter_by(room_name = lobby).first()
     if not room_row:
+        print("room doesn't exist")
         return render_template("index.html")
     
     data = {'username': None, 'lobby': lobby, 'modal': False}
@@ -89,21 +98,27 @@ def create_lobby(lobby):
         session['username'] = data['username']
         room_row.opp_username = data['username']
         db.session.commit()
+        print("received modal data for opp")
         return render_template("room.html", data = data)
     if session.get("username"):
         data["username"] = session.get("username")
         if session.get("username") == room_row.host_username:
+            print("session for host already existed")
             return render_template("room.html", data = data)
         elif session.get("username") == room_row.opp_username:
+            print("session for opp already existed")
             return render_template("room.html", data = data)
         elif not room_row.opp_username:
             room_row.opp_username = session.get("username")
             db.session.commit()
+            print("should never see this")
             return render_template("room.html", data = data)
         else:
+            print("wasnt a session user or routed from index")
             return render_template("index.html")
     else:
         data["modal"] = True
+        print("new user, prompt modal ")
         return render_template("room.html", data = data)
 
 @sio.event
@@ -132,6 +147,7 @@ def join(data):
     if data["username"] is not None:
         username = data["username"]
         room = data["room"]
+        session['room'] = room
         join_room(room)
         time_stamp = time.strftime('%b-%d %I:%M%p', time.localtime())
         sio.emit('incoming-status-msg', {"msg": username + " has joined room " + room, 'time_stamp': time_stamp}, to = room)
@@ -144,11 +160,13 @@ def leave(data):
     :param data: a dict in the form (username, room)
     :return: None
     """
+    print("got to leave event")
     username = data["username"]
     room = data["room"]    
     time_stamp = time.strftime('%b-%d %I:%M%p', time.localtime())
     sio.emit('incoming-status-msg', {"msg": username + " has left room " + room, 'time_stamp': time_stamp}, to = room)
     leave_room(room)
+    session.pop('room')
 
 
 @sio.event
@@ -159,6 +177,16 @@ def connect():
 
 @sio.event
 def disconnect():
+    if session.get('room'):
+        sio.emit('incoming-status-msg', {"msg": session['username'] + " has left room " + session['room'], 'time_stamp': time.strftime('%b-%d %I:%M%p', time.localtime())}, to = session['room'])
+        room_row = db.session.query(Room).filter_by(room_name = session['room']).first()
+        if room_row.host_username == session['username']:
+            room_row.host_username == None
+        elif room_row.opp_username == session['username']:
+            room_row.opp_username == None 
+        # db.session.delete(room_row)
+        # db.session.commit()
+
     print(request.sid, ' disconnected')
 
 

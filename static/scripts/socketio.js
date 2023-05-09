@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // when a user disconnects, its crucial to delete the row from the database and alert the remaining player that the room is now closed
       socket.on('disconnect', () => {
         console.log("disconnected");
-        // socket.emit('leave', {'username': username, 'room': room});
+        socket.emit('leave', {'username': username, 'room': room});
     });
 
       socket.on('incoming-status-msg', data => {
@@ -47,6 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
       var $status = $('#status')
       var $fen = $('#fen')
       var $pgn = $('#pgn')
+
       
       function onDragStart (source, piece, position, orientation) {
         // do not pick up pieces if the game is over
@@ -124,4 +125,5 @@ document.addEventListener('DOMContentLoaded', () => {
       
       updateStatus()
     }
+    $(window).resize(board.resize)
 })
