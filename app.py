@@ -24,21 +24,10 @@ def index():
     if request.method == 'POST':
         if 'createSubmit' in request.form:
 
-            # check if the room already exists in the database
             room_input = request.form.get("lobby")
             if db.session.query(Room).filter_by(room_name = room_input).first(): 
                 print("room already exists - cant create")
                 return render_template("index.html")
-
-            # create room from form fields
-            # data:
-            # room name
-            # host username 
-            # opp username None
-            # side
-            # time control
-            # increment
-            # current score
             
             username = request.form.get("username")
             side = request.form.get("btnradio")
