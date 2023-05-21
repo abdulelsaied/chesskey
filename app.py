@@ -1,4 +1,5 @@
 import random
+from this import d
 import time
 from flask import Flask, render_template, redirect, url_for, request, session
 from flask_socketio import SocketIO, send, emit, join_room, leave_room
@@ -19,6 +20,7 @@ def index():
     routes the user to the landing page.
     POST data can be from the create form or the post form, and the db fields are filled accordingly
 
+
     :return: None
     """
     if request.method == 'POST':
@@ -28,28 +30,33 @@ def index():
             if db.session.query(Room).filter_by(room_name = room_input).first(): 
                 print("room already exists - cant create")
                 return render_template("index.html")
-            
-            username = request.form.get("username")
+
             side = request.form.get("btnradio")
             if side == "random":
                 side = random.choice(["white", "black"])
-            time_control = request.form.get("time-control")
-            increment = request.form.get("increment")
+            
+            session['username'] = request.form.get("username")
+            session['side'] = side
+            session['time_control'] = request.form.get("time-control")
+            session['increment'] = request.form.get("increment")
+            session['room'] = room_input
             room = Room(
                 room_name = room_input,
-                host_username = username,
-                opp_username = None
+                host_username = session['username'],
+                opp_username = None,
+                side = side,
+                time_control = request.form.get("time-control"),
+                increment = request.form.get("increment")
             )
             db.session.add(room)
             db.session.commit()
 
-            session['username'] = username
-            print("creating room", room_input, "host username", username, "opp username", None)
-            return redirect(url_for("create_lobby", lobby = room_input)) 
+            print("creating room", room_input, "host username", session['username'], "opp username", None)
+            return redirect(url_for("create_lobby", lobby = session['room'])) 
+
         elif 'joinSubmit' in request.form:
+
             room_input = request.form.get("lobby")
-            username = request.form.get("username")
-            session['username'] = username
             room_row = db.session.query(Room).filter_by(room_name = room_input).first()
             if not room_row:
                 print("room doesn't exist")
@@ -57,10 +64,13 @@ def index():
             if room_row.opp_username:
                 print("room is already full")
                 return render_template("index.html")
-            room_row.opp_username = username
+            session['username'] = request.form.get("username")
+            session['room'] = room_input
+            room_row.opp_username = session['username']
             db.session.commit()
-            print("joining room", room_input, "host username", room_row.host_username, "opp username", username)
-            return redirect(url_for("create_lobby", lobby = room_input))
+            print("joining room", session['room'], "host username", room_row.host_username, "opp username", session['username'])
+            # data = {'lobby': room_input, 'side': None, 'time_control': None, 'increment': None}
+            return redirect(url_for("create_lobby", lobby = session['room']))
     else:
         print("get request in /")
         return render_template("index.html")
@@ -80,7 +90,10 @@ def create_lobby(lobby):
         print("room doesn't exist")
         return render_template("index.html")
     
-    data = {'username': None, 'lobby': lobby, 'modal': False}
+    data = {}
+    data['username'] = None
+    data['lobby'] = lobby
+    data['modal'] = False
 
     if request.method == 'POST':
         data['username'] = request.form.get('username')
@@ -129,6 +142,7 @@ def incoming_msg(data):
 def join(data):
     """
     connects a user to the desired room, and broadcasts that they connected to all users of the room
+    updates UI to account for join
 
     :param data: a dict in the form (username, room)
     :return: None
@@ -140,7 +154,18 @@ def join(data):
         join_room(room)
         time_stamp = time.strftime('%b-%d %I:%M%p', time.localtime())
         sio.emit('incoming-status-msg', {"msg": username + " has joined room " + room, 'time_stamp': time_stamp}, to = room)
-    
+
+        # send enough info for both sides to completely fill out their names, and to flip the board accordingly
+        room_row = db.session.query(Room).filter_by(room_name = room).first()
+        print("got here")
+        if username == room_row.host_username:
+            sio.emit('update-ui', {"username": username, "time_control": room_row.time_control, "increment": room_row.increment, "opp_username": "Opponent", "side": room_row.side}, to = room)
+        elif username == room_row.opp_username:
+            side = "white" if room_row.side == "black" else "white" 
+            sio.emit('update-ui', {"username": username, "time_control": room_row.time_control, "increment": room_row.increment, "opp_username": room_row.host_username, "side": side}, to = room)
+        else:
+            print("error")
+
 @sio.event
 def leave(data):
     """
@@ -162,7 +187,6 @@ def leave(data):
 def connect():
     print(request.sid, ' connected')
     ## EMIT HERE
-
 
 @sio.event
 def disconnect():

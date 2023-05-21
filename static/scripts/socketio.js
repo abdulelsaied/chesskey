@@ -28,6 +28,24 @@ document.addEventListener('DOMContentLoaded', () => {
           }
       });
 
+      // receive the username, time control and increment of the user
+      // if the user has the time control saved in their session, then they are the host of the room 
+      // if the user doesn't, they are the opponent
+      socket.on('update-ui', data => {
+        if (document.querySelector('#opp_username').innerHTML == "Opponent") {
+          document.querySelector('#opp_username').innerHTML = data['username'];
+        } 
+        else {
+          document.querySelector('#opp_username').innerHTML = data['opp_username'];
+          document.querySelector('#opp_time_left').innerHTML = data['time_control'];
+          document.querySelector('#host_username').innerHTML = data['username'];
+          document.querySelector('#time_left').innerHTML = data['time_control'];
+          if (data['side'] == "black") {
+            board.flip();
+          }
+        }
+    });
+
       document.querySelector('#send_message').onclick = () => {
           socket.emit('incoming_msg', {'msg': document.querySelector('#user_message').value, 'username': username, 'room': room});
           document.querySelector('#user_message').value = '';
