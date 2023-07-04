@@ -22,9 +22,9 @@ def index():
 
     :return: None
     """
+    session.clear()
     if request.method == 'POST':
         if 'createSubmit' in request.form:
-            session.clear()
             room_input = request.form.get("lobby")
             if db.session.query(Room).filter_by(room_name = room_input).first(): 
                 print("room already exists - cant create")
@@ -54,7 +54,6 @@ def index():
             return redirect(url_for("create_lobby", lobby = session['room'])) 
 
         elif 'joinSubmit' in request.form:
-            session.clear()
             room_input = request.form.get("lobby")
             room_row = db.session.query(Room).filter_by(room_name = room_input).first()
             if not room_row:
@@ -71,7 +70,6 @@ def index():
             # data = {'lobby': room_input, 'side': None, 'time_control': None, 'increment': None}
             return redirect(url_for("create_lobby", lobby = session['room']))
     else:
-        print("get request in /")
         return render_template("index.html")
 
 @app.route("/<lobby>", methods = ['GET', 'POST'])
@@ -94,6 +92,8 @@ def create_lobby(lobby):
     data['lobby'] = lobby
     data['modal'] = False
     data['side'] = None
+    data['time-control'] = room_row.time_control
+    data['increment'] = room_row.increment
 
     if request.method == 'POST':
         data['username'] = request.form.get('username')
@@ -203,6 +203,13 @@ def disconnect():
             room_row.opp_username == None 
     print(request.sid, ' disconnected')
     #upon disconnect, room should shut down and database row should be deleted (for now)
+
+# generates a unique key of length n 
+def generateKey(n):
+    result = ""
+    chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+    for i in range(n):
+        result += random.choice(chars)
 
 
 
