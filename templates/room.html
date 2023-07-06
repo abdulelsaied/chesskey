@@ -7,16 +7,22 @@
     <link rel = "stylesheet" type = "text/css" href = "{{ url_for('static', filename = 'css/chessboard.css') }}">
   </head>
   <body>
-
-    <button type="button" id = "usernameButton" value = "{{ data['modal'] }}" style = "display: none;" class="btn" data-bs-toggle="modal" data-bs-target="#usernameModal"></button>
+    <!-- {% with messages = get_flashed_messages() %}
+    {% if messages %}
+       {% for message in messages %}
+          {{ message }}
+       {% endfor %}
+    {% endif %}
+    {% endwith %} -->
+    <button type="button" id = "usernameButton" value = "{{ modal }}" style = "display: none;" class="btn" data-bs-toggle="modal" data-bs-target="#usernameModal"></button>
     <button type="button" id = "gameOverButton" value = "" style = "display: none;" class="btn" data-bs-toggle="modal" data-bs-target="#gameOverModal"></button>
     <div class = "info">
-        <div id = "username" data-value = "{{ data['username'] }}"></div>
-        <div id = "lobby" data-value = "{{ data['lobby'] }}"></div>
-        <div id = "modal" data-value = "{{ data['modal'] }}"></div>
-        <div id = "side" data-value = "{{ data['side'] }}"></div>
-        <div id = "time-control" data-value = "{{ data['time-control'] }}"></div>
-        <div id = "increment" data-value = "{{ data['increment'] }}"></div>
+        <div id = "username" data-value = "{{ session['username'] }}">{{ session['username'] }}</div>
+        <div id = "room" data-value = "{{ session['room'] }}">{{ session['room'] }}</div>
+        <div id = "modal" data-value = "{{ modal }}">{{ modal }}</div>
+        <div id = "side" data-value = "{{ session['side'] }}">{{ session['side'] }}</div>
+        <div id = "time_control" data-value = "{{ session['time_control'] }}">{{ session['time_control'] }}</div>
+        <div id = "increment" data-value = "{{ session['increment'] }}">{{ session['increment'] }}</div>
     </div>
 
     <form method = "post">

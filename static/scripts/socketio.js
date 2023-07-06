@@ -7,14 +7,12 @@ document.addEventListener('DOMContentLoaded', () => {
     
       const socket = io();
       const username = document.querySelector('#username').getAttribute('data-value');
-      const room = document.querySelector('#lobby').getAttribute('data-value');
+      const room = document.querySelector('#room').getAttribute('data-value');
       const side = document.querySelector('#side').getAttribute('data-value');
-      let time_control = parseInt(document.querySelector('#time-control').getAttribute('data-value')) * 60; // convert starting time to seconds
-      let opp_time_control = parseInt(document.querySelector('#time-control').getAttribute('data-value')) * 60; // convert starting time to seconds
+      let time_control = parseInt(document.querySelector('#time_control').getAttribute('data-value')) * 60; // convert starting time to seconds
+      let opp_time_control = parseInt(document.querySelector('#time_control').getAttribute('data-value')) * 60; // convert starting time to seconds
       let score = 0;
       let opp_score = 0;
-      let start_timer = false;
-      const move_log = []
       let increment = parseInt(document.querySelector('#increment').getAttribute('data-value')); // increment already in seconds
       var board = null;
       var game = new Chess();
@@ -112,22 +110,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         // send move to both users, INCLUDING THE MOVE NOTATION SO THE OTHER USER CAN ADD TO THEIR MOVE LOG 
         socket.emit('update', {"fen": game.fen(), "room": room, "target": target});
-
-        if (start_timer == false) { // first move, start the timer for the opp and set start_timer to true
-          start_timer = true;
-          setInterval(updateTimer, 1000);
-        }
-
-        // my clock should stop 
-        clearInterval();
       }
 
       function onSnapEnd() {
         board.position(game.fen());
-      }
-
-      function updateTimer (turn) {
-        
       }
 
       function isTurn() {
