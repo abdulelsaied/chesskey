@@ -2,21 +2,19 @@ import { Chess } from '../node_modules/chess.js/dist/chess.js'
 
 document.addEventListener('DOMContentLoaded', () => {
 
-    var btn = document.getElementById("usernameButton");
-    if (btn.value == "False") {
+    if (document.getElementById("usernameButton").value == "False") {
     
       const socket = io();
       const username = document.querySelector('#username').getAttribute('data-value');
       const room = document.querySelector('#room').getAttribute('data-value');
-      const side = document.querySelector('#side').getAttribute('data-value');
+      let side = document.querySelector('#side').getAttribute('data-value');
       let time_control = parseInt(document.querySelector('#time_control').getAttribute('data-value')) * 60; // convert starting time to seconds
       let opp_time_control = parseInt(document.querySelector('#time_control').getAttribute('data-value')) * 60; // convert starting time to seconds
       let score = 0;
       let opp_score = 0;
       let increment = parseInt(document.querySelector('#increment').getAttribute('data-value')); // increment already in seconds
-      var board = null;
-      var game = new Chess();
-      var config = {
+      let game = new Chess();
+      const config = {
         draggable: true,
         position: 'start',
         showErrors: 'console',
@@ -25,7 +23,11 @@ document.addEventListener('DOMContentLoaded', () => {
         onSnapEnd: onSnapEnd,
         dropOffBoard: 'snapback'
       };
-      board = Chessboard('myBoard', config);
+      let board = Chessboard('myBoard', config);
+
+      socket.on('initialize', () => {
+
+      });
 
       socket.on('connect', () => {
           console.log("connected");
@@ -51,6 +53,8 @@ document.addEventListener('DOMContentLoaded', () => {
           document.querySelector('#opp_time_left').innerHTML = opp_time_control;
           document.querySelector('#host_username').innerHTML = data['username'];
           document.querySelector('#time_left').innerHTML = time_control;
+        } else {
+          document.querySelector('#opp_username').innerHTML = data['username'];
         }
         board.orientation(side);
       });
@@ -90,8 +94,7 @@ document.addEventListener('DOMContentLoaded', () => {
       
         if ((game.turn() === 'w' && piece.search(/^b/) !== -1) || // add extra checks that side matches the piece moving
             (game.turn() === 'b' && piece.search(/^w/) !== -1) || 
-            (game.turn() == 'w' && side == "black") ||
-            (game.turn() == 'b' && side == "white")) {
+            isTurn()) {
           return false
         }
       }
@@ -108,7 +111,6 @@ document.addEventListener('DOMContentLoaded', () => {
           console.log(err);
           return 'snapback';
         }
-        // send move to both users, INCLUDING THE MOVE NOTATION SO THE OTHER USER CAN ADD TO THEIR MOVE LOG 
         socket.emit('update', {"fen": game.fen(), "room": room, "target": target});
       }
 

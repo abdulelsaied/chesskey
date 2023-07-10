@@ -1,8 +1,7 @@
-from concurrent.futures.process import _ResultItem
 import random
 import time
 from flask import Flask, render_template, redirect, url_for, request, session, flash
-from flask_socketio import SocketIO, send, emit, join_room, leave_room
+from flask_socketio import SocketIO, send, join_room, leave_room
 from db import *
 from flask_sqlalchemy import SQLAlchemy
 
@@ -23,14 +22,13 @@ def index():
     :return: None
     """
     session.clear()
-    print(session)
     if request.method == 'POST':
         if 'createSubmit' in request.form:
             room_key = generate_key(3)
             side = request.form.get("btnradio")
             if side == "random":
                 side = random.choice(["white", "black"])
-            set_session_data(room_key, side, request.form.get("username"), request.form.get("time_control"), request.form.get("increment"))
+            set_session_data(session, room_key, side, request.form.get("username"), request.form.get("time_control"), request.form.get("increment"))
             room = Room(
                 room_name = room_key,
                 host_username = session['username'],
@@ -41,7 +39,7 @@ def index():
             )
             db.session.add(room)
             db.session.commit()
-            return redirect(url_for("create_room", room = session['room'], modal = False)) 
+            return redirect(url_for("create_room", room = session['room'])) 
 
         elif 'joinSubmit' in request.form:
             room_key = request.form.get("room")
@@ -52,16 +50,15 @@ def index():
             if room_row.opp_username:
                 flash("Lobby " + room_key + " is full!", 'error')
                 return render_template("index.html")
-            set_session_data(room_key, flip_side(room_row.side), request.form.get("username"), room_row.time_control, room_row.increment)
+            set_session_data(session, room_key, flip_side(room_row.side), request.form.get("username"), room_row.time_control, room_row.increment)
             room_row.opp_username = session['username']
             db.session.commit()
-            return redirect(url_for("create_room", room = session['room'], modal = False))
+            return redirect(url_for("create_room", room = session['room']))
     else:
         return render_template("index.html")
 
-@app.route("/<room>", defaults = {"modal": True}, methods = ['GET', 'POST'])
-@app.route("/<room>/<modal>", methods = ['GET', 'POST'])
-def create_room(room, modal):
+@app.route("/<room>", methods = ['GET', 'POST'])
+def create_room(room):
     """
     creates a room and routes the user to that lobby.
     if a session for the user already exists, route them to the lobby 
@@ -75,15 +72,20 @@ def create_room(room, modal):
         flash("Lobby " + room + " doesn't exist!", 'error')
         return render_template("index.html")
     if request.method == 'POST':
-        set_session_data(room, flip_side(room_row.side), request.form.get('username'), room_row.time_control, room_row.increment)
+        set_session_data(session, room, flip_side(room_row.side), request.form.get('username'), room_row.time_control, room_row.increment)
         room_row.opp_username = session['username']
         db.session.commit()
-        modal = False
-        return render_template("room.html", data = session, modal = modal)
-    if modal and room_row.opp_username:
-        flash("Lobby " + room + " is full!", 'error')
-        return render_template("index.html") 
-    return render_template("room.html", data = session, modal = modal)
+        return render_template("room.html", data = session, modal = False)
+    if session.get("username"):
+        if (session.get("username") == room_row.host_username and not room_row.opp_username) or session.get("username") == room_row.opp_username:
+            return render_template("room.html", data = session, modal = False)
+    else:
+        if not room_row.opp_username:
+            return render_template("room.html", data = session, modal = True)
+    print("error creating a room")
+    # should reroute to error route or something
+    # flash("Lobby " + room + " is full!", 'error')
+    # return render_template("index.html") 
 
 app.route("/error", methods = ['GET', 'POST'])
 def error():
@@ -179,7 +181,7 @@ def flip_side(side):
     else:
         raise Exception("Invalid side value")
 
-def set_session_data(room, side, username, time_control, increment):
+def set_session_data(session, room, side, username, time_control, increment):
     session['room'] = room
     session['side'] = side
     session['username'] = username
