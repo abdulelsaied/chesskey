@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById("usernameButton").value == "False") {
     
       const socket = io();
+      let live = false
       const username = document.querySelector('#username').getAttribute('data-value');
       const room = document.querySelector('#room').getAttribute('data-value');
       let side = document.querySelector('#side').getAttribute('data-value');
@@ -12,6 +13,8 @@ document.addEventListener('DOMContentLoaded', () => {
       let opp_time_control = parseInt(document.querySelector('#time_control').getAttribute('data-value')) * 60; // convert starting time to seconds
       let score = 0;
       let opp_score = 0;
+      let ping_connection;
+      let pings = [];
       let increment = parseInt(document.querySelector('#increment').getAttribute('data-value')); // increment already in seconds
       let game = new Chess();
       const config = {
@@ -25,18 +28,25 @@ document.addEventListener('DOMContentLoaded', () => {
       };
       let board = Chessboard('myBoard', config);
 
-      socket.on('initialize', () => {
-
-      });
-
       socket.on('connect', () => {
           console.log("connected");
-          socket.emit('join', {'username': username, 'room': room});
+          socket.emit('join');
       });
 
       socket.on('disconnect', () => {
         console.log("disconnected");
         socket.emit('leave', {'username': username, 'room': room});
+      });
+
+      socket.on('initialize-game', () => {
+        console.log("starting game");
+        live = true;
+        game = new Chess(); // move to other event?
+        board = Chessboard('myBoard', config);// move to other event?
+        board.orientation(side);// move to other event?
+        ping_connection = setInterval(pingConnection, 10000);
+        // update scores
+        // start the timer
       });
 
       socket.on('incoming-status-msg', data => {
@@ -46,6 +56,18 @@ document.addEventListener('DOMContentLoaded', () => {
               document.querySelector('#display-message-section').append(p);
           }
       });
+
+      socket.on('receive-ping', ping => {
+        pings.push(ping);
+        console.log(pings)
+        if (pings.length == 2 && pings[0] == true && pings[1] == true) {
+          socket.emit('close_room');
+          clearInterval(ping_connection);
+        }
+        if (pings.length > 1) {
+          pings.shift(); // [False, True] -> [True]
+        }
+    });
 
       socket.on('update-ui', data => {
         if (data['username'] == username) {
@@ -72,6 +94,8 @@ document.addEventListener('DOMContentLoaded', () => {
           }
       });
 
+      
+
       socket.on('update-board', data => {
         console.log(data['fen']);
         game = new Chess(data['fen']);
@@ -90,12 +114,12 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       
       function onDragStart (source, piece, position, orientation) {
-        if (game.isGameOver()) return false
+        if (!live || game.isGameOver()) return false
       
         if ((game.turn() === 'w' && piece.search(/^b/) !== -1) || // add extra checks that side matches the piece moving
             (game.turn() === 'b' && piece.search(/^w/) !== -1) || 
-            isTurn()) {
-          return false
+            !isTurn()) {
+          return false;
         }
       }
       
@@ -116,6 +140,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
       function onSnapEnd() {
         board.position(game.fen());
+      }
+
+      function pingConnection() {
+        socket.emit('check_connection');
       }
 
       function isTurn() {
