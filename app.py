@@ -7,8 +7,9 @@ from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
 app.secret_key = '0351638baf53bbdac142a7e49d898cf490d2c870f2a275769e9fdbef6e646476'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://chesskey_user:xpBr1LvqQh8M5d7BfLeLZhUloHkmGWgn@dpg-ch0pv96si8uipc8h8a9g-a.oregon-postgres.render.com/chesskey'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://chesskey2_0_user:iL6o4g32rc6IXiDLN1F5vsd9rTr2nrIY@dpg-cis7u7p8g3n42olp6mqg-a.oregon-postgres.render.com/chesskey2_0'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {"pool_pre_ping": True}  
 db = SQLAlchemy(app)
 
 sio = SocketIO(app)
@@ -25,19 +26,22 @@ def index():
     if request.method == 'POST':
         if 'createSubmit' in request.form:
             room_key = generate_key(3)
-            side = request.form.get("btnradio")
-            if side == "random":
-                side = random.choice(["white", "black"])
-            set_session_data(session, room_key, side, request.form.get("username"), request.form.get("time_control"), request.form.get("increment"))
+            side = random.choice(["white", "black"]) if request.form.get("btnradio") == "random" else request.form.get("btnradio")
+            session['room'] = room_key
+            session['username'] = request.form.get("username")
             room = Room(
                 room = room_key,
-                user1 = session['username'],
+                user1 = request.form.get("username"),
                 user2 = None,
                 user1_side = side,
+                user2_side = flip_side(side),
                 time_control = request.form.get("time_control"),
                 increment = request.form.get("increment"),
-                user1_disconnect = False,
-                user2_disconnect = False
+                user1_connect = False,
+                user2_connect = False, 
+                live = False,
+                fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+                move_log = ''
             )
             db.session.add(room)
             db.session.commit()
@@ -47,13 +51,16 @@ def index():
             room_key = request.form.get("room")
             room_row = db.session.query(Room).filter_by(room = room_key).first()
             if not room_row:
+                print("join error")
                 flash("Lobby " + room_key + " doesn't exist!", 'error')
-                return render_template("index.html")
+                return redirect(url_for("index")) 
             if room_row.user2 and room_row.user1:
+                print("join error")
                 flash("Lobby " + room_key + " is full!", 'error')
-                return render_template("index.html")
-            set_session_data(session, room_key, flip_side(room_row.user1_side), request.form.get("username"), room_row.time_control, room_row.increment)
-            room_row.opp_username = session['username']
+                return redirect(url_for("index")) 
+            session['room'] = room_key
+            session['username'] = request.form.get("username") 
+            room_row.user2 = session['username']
             db.session.commit()
             return redirect(url_for("create_room", room = session['room']))
     else:
@@ -69,12 +76,18 @@ def create_room(room):
     :param lobby: unique string for a chess lobby
     :return: None
     """
+
+    if request.method == 'POST' and request.form.get('msg') == 'index':
+        session.clear()
+        print("got to clearing!")
+        return redirect(url_for("index")) 
     room_row = db.session.query(Room).filter_by(room = room).first()
     if not room_row:
         flash("Lobby " + room + " doesn't exist!", 'error')
-        return render_template("index.html")
+        return redirect(url_for("index")) 
     if request.method == 'POST':
-        set_session_data(session, room, flip_side(room_row.user1_side), request.form.get('username'), room_row.time_control, room_row.increment)
+        session['room'] = room
+        session['username'] = request.form.get('username')
         room_row.user2 = session['username']
         db.session.commit()
         return render_template("room.html", data = session, modal = False) # render a different template 
@@ -84,32 +97,155 @@ def create_room(room):
             return render_template("room.html", data = session, modal = False)
     else:
         if not room_row.user2:
-            return render_template("room.html", data = session, modal = True)
+            return render_template("room.html", data = session, modal = True) # render a different template
     flash("Lobby " + room + " is full!", 'error')
     session.clear()
     return redirect(url_for("index")) 
 
 @sio.event
-def check_connection():
-    room_row = db.session.query(Room).filter_by(room = session['room']).first()
-    if not room_row:
-        flash("Lobby " + session['room'] + " doesn't exist!", 'error')
-        return render_template("index.html")
-    if (session['username'] == room_row.user1 and room_row.user2_disconnect) or (session['username'] == room_row.user2 and room_row.user1_disconnect):
-        sio.emit('receive-ping', True, to = request.sid) 
+def connect():
+    print(request.sid, ' connected')
+
+@sio.event
+def disconnect():
+    if session.get('room'):
+        time_stamp = time.strftime('%b-%d %I:%M%p', time.localtime())
+        sio.emit('incoming-status-msg', {"msg": session["username"] + " has left room " + session["room"] , 'time_stamp': time_stamp}, to = session["room"])
+        leave_room(session["room"])
+        room_row = db.session.query(Room).filter_by(room = session['room']).first()
+        if not room_row:
+            sio.emit('route-index', to = request.sid)
+        if session['username'] == room_row.user1:
+            room_row.user1_connect = False
+        elif session['username'] == room_row.user2:
+            room_row.user2_connect = False
+        db.session.commit()
     else:
-        sio.emit('receive-ping', False, to = request.sid)
+        sio.emit('route-index', to = request.sid)
+    print(request.sid, ' disconnected')
+
+@sio.event
+def join():
+    """
+    connects a user to the desired room, and broadcasts that they connected to all users of the room
+    updates UI to account for join
+
+    :param data: a dict in the form (username, room)
+    :return: None
+    """
+    if session.get('room'):
+        room_row = db.session.query(Room).filter_by(room = session['room']).first()
+        if not room_row:
+            flash("Room doesn't exist anymore")
+            sio.emit('route-index', to = request.sid)
+            print("got here")
+        join_room(session['room'])
+        time_stamp = time.strftime('%b-%d %I:%M%p', time.localtime())
+        sio.emit('incoming-status-msg', {"msg": session['username'] + " has joined room " + session['room'], 'time_stamp': time_stamp}, to = session['room'])
+        if session['username'] == room_row.user1:
+            room_row.user1_connect = True 
+        elif session['username'] == room_row.user2:
+            room_row.user2_connect = True
+        if room_row.live == False and (room_row.user1_connect == True and room_row.user2_connect == True): 
+            room_row.live = True
+        db.session.commit()
+        print({col.name: getattr(room_row, col.name) for col in room_row.__table__.columns})
+        sio.emit('update-ui', {col.name: getattr(room_row, col.name) for col in room_row.__table__.columns}, to = session['room'])
 
 @sio.event
 def close_room():
     print("closing room " + session['room'])
     room_row = db.session.query(Room).filter_by(room = session['room']).first()
-    db.session.delete(room_row)
-    db.session.commit()
+    if room_row:
+        db.session.delete(room_row)
+        db.session.commit()
     session.clear()
-    flash("Opponent left the room")
-    return redirect(url_for("index")) 
+    sio.emit('route-index', to = request.sid)
+
+@sio.event
+def check_connection():
+    # how could a user get here without a session?
+    room_row = db.session.query(Room).filter_by(room = session['room']).first()
+    if not room_row:
+        flash("Lobby " + session['room'] + " doesn't exist!", 'error')
+        return render_template("index.html")
+    if (session['username'] == room_row.user1 and not room_row.user2_connect) or (session['username'] == room_row.user2 and not room_row.user1_connect):
+        sio.emit('receive-ping', True, to = request.sid) 
+    else:
+        sio.emit('receive-ping', False, to = request.sid)
+
+
+@sio.event
+def new_game():
+    room_row = db.session.query(Room).filter_by(room = session['room']).first()
+    if not room_row:
+        print("error")
+        flash("Lobby " + session['room'] + " doesn't exist!", 'error')
+    room_row.user1_side = flip_side(room_row.user1_side)
+    room_row.user2_side = flip_side(room_row.user2_side)
+    room_row.fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
+    room_row.move_log = ''
+    room_row.live = True
+    db.session.commit()
+    sio.emit('update-ui', {col.name: getattr(room_row, col.name) for col in room_row.__table__.columns}, to = session['room'])
+
+@sio.event
+def request_draw(user):
+    room_row = db.session.query(Room).filter_by(room = session['room']).first()
+    if not room_row:
+        print("error")
+        flash("Lobby " + session['room'] + " doesn't exist!", 'error')
+    sio.emit('send-draw-request', user, to = session['room'])
+
+@sio.event
+def draw_result(draw):
+    room_row = db.session.query(Room).filter_by(room = session['room']).first()
+    if not room_row:
+        print("error")
+        flash("Lobby " + session['room'] + " doesn't exist!", 'error')
+    if draw:
+        room_row.live = False
+        # update score values in db here 
+        db.session.commit()
+    sio.emit('trigger-draw', draw, to = session['room'])
+
+@sio.event
+def resign_result(resign):
+    room_row = db.session.query(Room).filter_by(room = session['room']).first()
+    if not room_row:
+        print("error")
+        flash("Lobby " + session['room'] + " doesn't exist!", 'error')
+    if resign:
+        room_row.live = False
+        db.session.commit()
+    sio.emit('trigger-resign', {"resign": resign, "user": session['username']}, to = session['room'])
+
+
+@sio.event
+def request_resign():
+    room_row = db.session.query(Room).filter_by(room = session['room']).first()
+    if not room_row:
+        print("error")
+        flash("Lobby " + session['room'] + " doesn't exist!", 'error')
+    sio.emit('send-resign-request', to = request.sid)
+
+@sio.event
+def request_rematch(user):
+    room_row = db.session.query(Room).filter_by(room = session['room']).first()
+    if not room_row:
+        print("error")
+        flash("Lobby " + session['room'] + " doesn't exist!", 'error')
+    if not room_row.live and room_row.user1_connect and room_row.user2_connect:
+        sio.emit('send-rematch-request', user, to = session['room'])
     
+@sio.event
+def rematch_result(rematch):
+    room_row = db.session.query(Room).filter_by(room = session['room']).first()
+    if not room_row:
+        print("error")
+        flash("Lobby " + session['room'] + " doesn't exist!", 'error')
+    
+    sio.emit('trigger-rematch', rematch, to = session['room'])
 
 @sio.event
 def incoming_msg(data):
@@ -124,74 +260,16 @@ def incoming_msg(data):
     msg = data["msg"]
     time_stamp = time.strftime('%b-%d %I:%M%p', time.localtime())
     send({"username": username, "msg": msg, "time_stamp": time_stamp}, to = room)
-
-
-@sio.event
-def join():
-    """
-    connects a user to the desired room, and broadcasts that they connected to all users of the room
-    updates UI to account for join
-
-    :param data: a dict in the form (username, room)
-    :return: None
-    """
-    if session.get('room'):
-        join_room(session['room'])
-        time_stamp = time.strftime('%b-%d %I:%M%p', time.localtime())
-        sio.emit('incoming-status-msg', {"msg": session['username'] + " has joined room " + session['room'], 'time_stamp': time_stamp}, to = session['room'])
-
-        # send enough info for both sides to completely fill out their names, and to flip the board accordingly
-        room_row = db.session.query(Room).filter_by(room = session['room']).first()
-        if not room_row:
-            flash("Room doesn't exist anymore")
-            return redirect(url_for("index"))
-        if session['username'] == room_row.user1:
-            room_row.user1_disconnect = False 
-            user2 = "Opponent" if not room_row.user2 else room_row.user2
-            sio.emit('update-ui', {"username": session['username'], "time_control": session['time_control'], "increment": session['increment'], "opp_username": user2, "side": session['side']}, to = session['room'])
-        elif session['username'] == room_row.user2: # and its the first time connecting?
-            room_row.user2_disconnect = False
-            sio.emit('update-ui', {"username": session['username'], "time_control": session['time_control'], "increment": session['increment'], "opp_username": room_row.user1, "side": session['side']}, to = session['room'])
-            sio.emit('initialize-game', to = session['room'])
-        else:
-            raise Exception("Joining room illegally")
-    else:
-        raise Exception("Session doesn't exist")
-    db.session.commit()
-
-@sio.event
-def leave(data):
-    """
-    disconnects a user from the desired room, and broadcasts that they disconnected to all users of the room
-
-    :param data: a dict in the form (username, room)
-    :return: None
-    """  
-    time_stamp = time.strftime('%b-%d %I:%M%p', time.localtime())
-    sio.emit('incoming-status-msg', {"msg": data["username"] + " has left room " + data["room"] , 'time_stamp': time_stamp}, to = data["room"])
-    leave_room(data["room"])
+    
 
 @sio.event
 def update(data):
-    sio.emit('update-board', data, to = data['room'])
-
-@sio.event
-def connect():
-    print(request.sid, ' connected')
-
-@sio.event
-def disconnect():
-    if session.get('room'):
-        sio.emit('incoming-status-msg', {"msg": session['username'] + " has left room " + session['room'], 'time_stamp': time.strftime('%b-%d %I:%M%p', time.localtime())}, to = session['room'])
-        room_row = db.session.query(Room).filter_by(room = session['room']).first()
-        if session['username'] == room_row.user1:
-            room_row.user1_disconnect = True
-        elif session['username'] == room_row.user2:
-            room_row.user2_disconnect = True 
-        db.session.commit()
-    print(request.sid, ' disconnected')
-
-
+    # here is where the db values should be updated, then sent to the update-board bucket
+    room_row = db.session.query(Room).filter_by(room = session['room']).first()
+    room_row.fen = data['fen']
+    room_row.move_log += str(data['move'][0]) + '/' # separator
+    db.session.commit()
+    sio.emit('update-board', data, to = session['room']) # should this only be sent to the user joining
 
 # generates a unique key of length n 
 def generate_key(n):
@@ -209,15 +287,4 @@ def flip_side(side):
     elif side == "black":
         return "white"
     else:
-        raise Exception("Invalid side value")
-
-def set_session_data(session, room, side, username, time_control, increment):
-    session['room'] = room
-    session['side'] = side
-    session['username'] = username
-    session['time_control'] = time_control
-    session['increment'] = increment
-
-
-
-
+        raise Exception("invalid side input")
