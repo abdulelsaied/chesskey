@@ -90,6 +90,14 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelector('#opp_time_left').innerHTML = time_control;
         document.querySelector('#host_username').innerHTML = username;
         document.querySelector('#time_left').innerHTML = time_control;
+
+        if (document.querySelector('#host_username').innerHTML == "ellie <3") {
+          document.querySelector('#host_username').style.color = "#ffd1dc"
+        }
+        if (document.querySelector('#opp_username').innerHTML == "ellie <3") {
+          document.querySelector('#opp_username').style.color = "#ffd1dc"
+        }
+
         if (fen != 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1') { // this stops new game from creating the right board
           board.position(fen);
         }

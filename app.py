@@ -1,3 +1,5 @@
+import os
+
 import random
 import time
 from flask import Flask, render_template, redirect, url_for, request, session, flash
@@ -6,8 +8,8 @@ from db import *
 from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
-app.secret_key = '0351638baf53bbdac142a7e49d898cf490d2c870f2a275769e9fdbef6e646476'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://chesskey2_0_user:iL6o4g32rc6IXiDLN1F5vsd9rTr2nrIY@dpg-cis7u7p8g3n42olp6mqg-a.oregon-postgres.render.com/chesskey2_0'
+app.secret_key = os.environ.get('SECRET_KEY')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {"pool_pre_ping": True}  
 db = SQLAlchemy(app)
