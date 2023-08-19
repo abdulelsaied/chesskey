@@ -19,4 +19,6 @@ class Room(db.Model):
     live = db.Column(db.Boolean, unique = False, nullable = False)
     fen = db.Column(db.Text, unique = False, nullable = False)
     move_log = db.Column(db.Text, unique = False, nullable = False)
+    user1_last_move = db.Column(db.TIMESTAMP, unique = False, nullable = True)
+    user2_last_move = db.Column(db.TIMESTAMP, unique = False, nullable = True)
 

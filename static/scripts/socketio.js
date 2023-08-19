@@ -209,12 +209,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
       socket.on('trigger-resign', data => {
         const game_buttons = document.getElementById('game-buttons');
+        if (document.getElementById('resign-reject')) {
+          game_buttons.removeChild(document.getElementById('resign-reject'));
+          game_buttons.removeChild(document.getElementById('resign-accept'));
+        }
         if (data['resign']) {
           // trigger modal with draw
-          live = false;
+          live = false; // should this be set in the db 
           if (data['user'] == username) {
-            game_buttons.removeChild(document.getElementById('resign-reject'));
-            game_buttons.removeChild(document.getElementById('resign-accept'));
             document.getElementById("gameOverModalTitle").innerHTML = "You Lost!";
             opp_score += 1.0;
           } else {
@@ -296,6 +298,11 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         }
       } 
+
+      function updateTimers() {
+        // after each move, or when you first set live to true:
+
+      }
       
       function onDragStart (source, piece, position, orientation) {
         if (!live || game.isGameOver()) return false
@@ -320,7 +327,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         // set fen and move log in db
         let move = game.history().slice(-1);
-        socket.emit('update', {"fen": game.fen(), "room": room, "move": move});
+        
+        socket.emit('update', {"fen": game.fen(), "room": room, "move": move, "user": username, "timestamp": new Date().toISOString()});
       }
 
       function onSnapEnd() {
@@ -328,7 +336,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       function pingConnection() {
-        socket.emit('check_connection');
+        socket.emit('check_connection', username);
       }
 
       function isTurn() {
@@ -395,5 +403,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
       $(window).resize(board.resize);
+      
     }
 })
