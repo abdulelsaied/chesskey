@@ -1,7 +1,8 @@
 import os
-
 import random
 import time
+import json
+from datetime import timedelta, datetime
 from flask import Flask, render_template, redirect, url_for, request, session, flash
 from flask_socketio import SocketIO, send, join_room, leave_room
 from db import *
@@ -49,7 +50,9 @@ def index():
                 fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
                 move_log = '', 
                 user1_last_move = None,
-                user2_last_move = None
+                user2_last_move = None, 
+                user1_time_left = timedelta(minutes = int(request.form.get("time_control"))),
+                user2_time_left = timedelta(minutes = int(request.form.get("time_control")))
             )
             db.session.add(room)
             db.session.commit()
@@ -144,7 +147,7 @@ def disconnect():
     print(request.sid, ' disconnected')
 
 @sio.event
-def join():
+def join(join_time):
     """
     connects a user to the desired room, and broadcasts that they connected to all users of the room
     updates db and UI to account for join
@@ -154,9 +157,7 @@ def join():
     if session.get('room'):
         room_row = db.session.query(Room).filter_by(room = session['room']).first()
         if not room_row:
-            flash("Room doesn't exist anymore")
             sio.emit('route-index', to = request.sid)
-            print("got here")
         join_room(session['room'])
         time_stamp = time.strftime('%b-%d %I:%M%p', time.localtime())
         sio.emit('incoming-status-msg', {"msg": session['username'] + " has joined room " + session['room'], 'time_stamp': time_stamp}, to = session['room'])
@@ -166,10 +167,14 @@ def join():
             room_row.user2_connect = True
         if room_row.live == False and (room_row.user1_connect == True and room_row.user2_connect == True): 
             room_row.live = True
+            if room_row.user2_side == "black":
+                room_row.user2_last_move = join_time 
+            else:
+                room_row.user1_last_move = join_time
+            sio.emit('initialize-timers', to = session['room'])
         db.session.commit()
         print({col.name: getattr(room_row, col.name) for col in room_row.__table__.columns})
-        sio.emit('update-ui', {col.name: getattr(room_row, col.name) for col in room_row.__table__.columns}, to = session['room'])
-
+        sio.emit('update-ui', json.dumps({col.name: getattr(room_row, col.name) for col in room_row.__table__.columns}, default = str), to = session['room'])
 @sio.event
 def close_room():
     """
@@ -309,13 +314,16 @@ def incoming_msg(data):
 @sio.event
 def update(data):
     # here is where the db values should be updated, then sent to the update-board bucket
+    #
     room_row = db.session.query(Room).filter_by(room = session['room']).first()
     room_row.fen = data['fen']
     room_row.move_log += str(data['move'][0]) + '/' # separator
-    if data['user'] == room_row.user1:
-        room_row.user1_last_move = data['timestamp']
+    if data['user'] == room_row.user1: # user1 just made a move
+        room_row.user1_last_move = datetime.fromisoformat(data['timestamp'].replace('Z', ""))
+        room_row.user1_time_left -= (room_row.user2_last_move - room_row.user1_last_move) + timedelta(seconds = int(room_row.increment))
     elif data['user'] == room_row.user2:
-        room_row.user2_last_move = data['timestamp']
+        room_row.user2_last_move = datetime.fromisoformat(data['timestamp'].replace('Z', ""))
+        room_row.user2_time_left -= (room_row.user1_last_move - room_row.user2_last_move) + timedelta(seconds = int(room_row.increment))
     db.session.commit()
     sio.emit('update-board', data, to = session['room']) # should this only be sent to the user joining
 

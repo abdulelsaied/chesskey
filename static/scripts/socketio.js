@@ -14,8 +14,9 @@ document.addEventListener('DOMContentLoaded', () => {
       let live = false;
       let side;
       let time_control;
+      let time_left;
+      let opp_time_left;
       let increment;
-      let move_log;
       let fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
       // client-saved values
@@ -37,7 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       socket.on('connect', () => {
           console.log("connected");
-          socket.emit('join');
+          socket.emit('join', new Date().toISOString());
       });
 
       socket.on('route-index', () => {
@@ -70,7 +71,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
       socket.on('update-ui', room_row => {
+
         // SHOULD CHECK GAME OVER AT THE END OF THIS FUNCTION TOO 
+        console.log(room_row);
+        room_row = JSON.parse(room_row)
+        console.log(room_row);
         updateDbValues(room_row);
         board.orientation(side);  
         console.log(fen);
@@ -87,9 +92,9 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (username == room_row['user2']) {
           document.querySelector('#opp_username').innerHTML = room_row['user1'];
         }  
-        document.querySelector('#opp_time_left').innerHTML = time_control;
+        document.querySelector('#opp_time_left').innerHTML = opp_time_left;
         document.querySelector('#host_username').innerHTML = username;
-        document.querySelector('#time_left').innerHTML = time_control;
+        document.querySelector('#time_left').innerHTML = time_left;
         console.log(document.querySelector('#host_username').innerHTML)
         console.log(document.querySelector('#opp_username').innerHTML)
         if (document.querySelector('#host_username').innerHTML == "ellie &lt;3") {
@@ -123,10 +128,20 @@ document.addEventListener('DOMContentLoaded', () => {
       });
 
       socket.on('update-board', data => {
+        updateTimers();
         game.load(data['fen']);
         board.position(game.fen());
         updateGameLog(data['move']);
         checkGameOver();
+      });
+
+      function updateTimers() {
+        // after each move, or when you first set live to true:
+
+      }
+
+      socket.on('initialize-timers', () => {
+
       });
 
       socket.on('send-draw-request', user => {
@@ -250,6 +265,7 @@ document.addEventListener('DOMContentLoaded', () => {
       function acceptDraw() {
         socket.emit('draw_result', true);
       }
+    
 
 
       // ADD ALL THESE BUTTONS ONCE GAME IS LIVE 
@@ -309,11 +325,6 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         }
       } 
-
-      function updateTimers() {
-        // after each move, or when you first set live to true:
-
-      }
       
       function onDragStart (source, piece, position, orientation) {
         if (!live || game.isGameOver()) return false
@@ -371,13 +382,16 @@ document.addEventListener('DOMContentLoaded', () => {
       function updateDbValues(room_row) {
         live = room_row['live'];
         if (username == room_row['user1']) {
+          time_left = room_row['user1_time_left']
+          opp_time_left = room_row['user2_time_left']
           side = room_row['user1_side'];
         } else if (username == room_row['user2']) {
+          time_left = room_row['user2_time_left']
+          opp_time_left = room_row['user1_time_left']
           side = room_row['user2_side'];
         }
         time_control = room_row['time_control'];
         increment = room_row['increment'];
-        move_log = room_row['move_log']
         fen = room_row['fen']
       }
 
