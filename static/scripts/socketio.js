@@ -73,12 +73,9 @@ document.addEventListener('DOMContentLoaded', () => {
       socket.on('update-ui', room_row => {
 
         // SHOULD CHECK GAME OVER AT THE END OF THIS FUNCTION TOO 
-        console.log(room_row);
         room_row = JSON.parse(room_row)
-        console.log(room_row);
         updateDbValues(room_row);
         board.orientation(side);  
-        console.log(fen);
         game = new Chess(fen);
         let moveArray = room_row['move_log'].split('/');
         moveArray.pop(); // remove empty entry at the end
@@ -128,6 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
 
       socket.on('update-board', data => {
+        updateDbValues();
         updateTimers();
         game.load(data['fen']);
         board.position(game.fen());
@@ -136,8 +134,8 @@ document.addEventListener('DOMContentLoaded', () => {
       });
 
       function updateTimers() {
-        // after each move, or when you first set live to true:
-
+        document.querySelector('#opp_time_left').innerHTML = opp_time_left;
+        document.querySelector('#time_left').innerHTML = time_left;
       }
 
       socket.on('initialize-timers', () => {
