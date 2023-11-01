@@ -1,11 +1,8 @@
-const socket = io("/chat");
+const socket = io('/chat');
 
 socket.on('connect', () => {
     console.log("connected to chat room");
-    // socket.emit('join-chat'); 
-    // if the user is user1, create the connection table and join session['room']
-    // if the user is user2, update the connection table and join session['room']
-    // also, create the gameinfo table and pass the information into an event that triggers the start of the game 
+    socket.emit('join'); 
 });
 
 let chat_box = document.getElementById("user_message");

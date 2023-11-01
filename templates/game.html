@@ -11,6 +11,10 @@
 </head>
 <body class = "bg-[#201b22] text-black">
 
+  <div class = "info">
+    <div id = "username-data" data-value = "{{ data['username'] }}"></div>
+    <div id = "room-data" data-value = "{{ data['room'] }}"></div>
+  </div>
   <button type = "button" id = "usernameButton" class="hidden" data-modal-target="usernameModal" data-modal-toggle="usernameModal"></button>
 
   <div id="usernameModal" tabindex="-1" aria-hidden="true" class="fixed top-0 left-0 right-0 z-50 hidden w-full p-2 overflow-x-hidden overflow-y-auto md:inset-0 h-[calc(100%-1rem)] max-h-full"> 
@@ -38,7 +42,7 @@
   </div>  
 
     <div class = "bg-purple-500 container mx-auto w-max border-4 border-white rounded-3xl mt-[3vh] mb-[3vh] px-2 text-white text-center text-2xl tracking-wider" data-tooltip-target="tooltip-right" data-tooltip-placement="right">
-      <p>thechesskey.com/DOG</p>
+      <p id = "link"></p>
     </div>
     <div id="tooltip-right" role="tooltip" class="absolute z-10 invisible inline-block px-3 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg shadow-sm opacity-0 tooltip dark:bg-gray-700">
       Copy to clipboard
@@ -47,13 +51,13 @@
     <div class="flex container mx-auto w-4/5 h-[80vh] space-x-8">
       <div class="flex flex-col basis-1/2">
         <div class = "flex gap-x-4">
-          <h3 class = "text-white">opp</h3>
-          <h3 class = "text-white border-2 border-white rounded-2xl">3:00</h3>
+          <h3 id = "opp_username" class = "text-white"></h3>
+          <h3 id = "opp_time_left" class = "text-white border-2 border-white rounded-2xl"></h3>
         </div>
         <div id = "board1" class = ""></div>
         <div class = "flex gap-x-4">
-          <h3 class = "text-white">host</h3>
-          <h3 class = "text-white border-2 border-white rounded-2xl">3:00</h3>
+          <h3 id = "username" class = "text-white"></h3>
+          <h3 id = "time_left" class = "text-white border-2 border-white rounded-2xl"></h3>
         </div>
       </div>
       <div class="basis-1/2 flex flex-col space-y-4">
@@ -61,29 +65,16 @@
           <h3 class= "text-xl font-bold text-white dark:text-white text-center">Game Log</h3>
           <div class = "log-container flex flex-col divide-y overflow-auto text-white">
             <p class = "odd:text-black ml-4">1. e4 e5</p>
-            <p class = "odd:text-black ml-4">1. e4 e5</p>
-            <p class = "odd:text-black ml-4">1. e4 e5</p>
-            <p class = "odd:text-black ml-4">1. e4 e5</p>
-            <p class = "odd:text-black ml-4">1. e4 e5</p>
-            <p class = "odd:text-black ml-4">1. e4 e5</p>
-            <p class = "odd:text-black ml-4">1. e4 e5</p>
-            <p class = "odd:text-black ml-4">1. e4 e5</p>
-            <p class = "odd:text-black ml-4">1. e4 e5</p>
-            <p class = "odd:text-black ml-4">1. e4 e5</p>
-            <p class = "odd:text-black ml-4">1. e4 e5</p>
-            <p class = "odd:text-black ml-4">1. e4 e5</p>
-            <p class = "odd:text-black ml-4">1. e4 e5</p>
-
           </div>
         </div>
 
         <div class = "middle-section h-1/5 bg-purple-500 rounded-3xl border-white border-4 flex flex-col text-white">
           <div class = "game-score flex grow items-center justify-around">
-            <h3 class= "text-xl font-bold text-white">host</h3>
-            <p class = "border-2 border-white px-1 py-1">0</p>
+            <h3 id = "scoreboard" class= "text-xl font-bold text-white"></h3>
+            <p id = "score" class = "border-2 border-white px-1 py-1"></p>
             <span>-</span>
-            <p class = "border-2 border-white px-1 py-1">0</p>
-            <h3 class= "text-xl font-bold text-white">opp</h3>
+            <p id = "opp_score" class = "border-2 border-white px-1 py-1"></p>
+            <h3 id = "opp_scoreboard" class= "text-xl font-bold text-white"></h3>
           </div>
           <div class = "game-buttons flex border-4 border-white rounded-bl-xl rounded-br-xl grow"> 
             <button type = "button" class = "bg-white text-purple-600 hover:text-purple-900 font-bold rounded-3-xl text-sm grow border-r-4 border-black">Offer Draw</button>

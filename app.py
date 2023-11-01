@@ -35,7 +35,6 @@ def index():
             session['room'] = generate_key()
             session['username'] = request.form.get("username")
             user1_side = random.choice(["white", "black"]) if request.form.get("side") == "random" else request.form.get("side")
-            print(user1_side)
             room = Rooms(
                 room = session['room'],
                 user1 = session['username'],
@@ -56,7 +55,7 @@ def index():
             room_key = request.form.get("room")
             room_row = db.session.query(Rooms).filter_by(room = room_key).first()
             if not room_row or (room_row.user1 and room_row.user2):
-                return render_template("index.html")
+                return render_template("landing.html")
             session['room'] = room_key
             session['username'] = request.form.get("username") 
             if session['username'] == room_row.user1:
@@ -103,16 +102,11 @@ def create_room(room):
 # SOCKETIO EVENTS #
 ###################
 
-@sio.on("connect", namespace = "/chat")
-def connect():
-    """
-    triggered when client connects to chat socket
+###################
+# GAME EVENTS #
+###################
 
-    :return: None
-    """
-    print(request.sid, ' connected to chat')
-
-@sio.on("connect", namespace = "/game")
+@sio.on("connect", namespace = '/game')
 def connect():
     """
     triggered when client connects to game socket
@@ -121,20 +115,15 @@ def connect():
     """
     print(request.sid, ' connected to game')
 
-@sio.on("chat_msg", namespace = "/chat")
-def chat_msg(msg):
-    if msg:
-        sio.emit('chat-msg', {"msg": msg, "time_stamp": time.strftime('%b-%d %I:%M%p', time.localtime())}, to = session['room'])
-
-@sio.on("join", namespace = "/game")
+@sio.on("join", namespace = '/game')
 def join():
     room_row = db.session.query(Rooms).filter_by(room = session['room']).first()
     if not room_row:
         print(session['room'] + " is not a room")
         return
-    join_room(session['room']) # which namespace joins the room?
-    sio.emit('chat-msg', {"msg": session["username"] + " has joined room " + session["room"], "time_stamp": time.strftime('%b-%d %I:%M%p', time.localtime())}, to = session['room'], namespace = "/chat")
+    join_room(session['room'])
     connection_row = db.session.query(Connection).filter_by(room = session['room']).first()
+    roominfo_row = db.session.query(RoomInfo).filter_by(room = session['room']).first()
     if connection_row:
         if session['username'] == room_row.user1:
             connection_row.user1_connect = True
@@ -142,7 +131,8 @@ def join():
             connection_row.user2_connect = True
         if connection_row.live == "init" and (connection_row.user1_connect == True and connection_row.user2_connect == True):
             connection_row.live = "live"
-            time_control = db.session.query(RoomInfo).filter_by(room = session['room']).first().time_control
+            time_control = roominfo_row.time_control
+            # upon creation of gameinfo, set the timer of the black player to be the current UTC timestamp 
             gameinfo = GameInfo(
                 room = session['room'],
                 fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
@@ -154,8 +144,7 @@ def join():
                 user1_score = 0,
                 user2_score = 0
             )
-            db.session.add(gameinfo)
-            ### HERE IS WHERE START GAME EVENT TRIGGERED?
+            db.session.add(gameinfo)   
     elif session['username'] == room_row.user1:     
         connection = Connection(
             room = session['room'],
@@ -164,8 +153,41 @@ def join():
             live = "init"
         )
         db.session.add(connection)
+
     db.session.commit()
-    sio.emit('chess-update', to = session['room'])
+
+    ### which one of these should be ONLY to request.sid (do both users need this information wwhen the other joins)
+    sio.emit('chat-msg', {"msg": session["username"] + " has joined room " + session["room"], "time_stamp": time.strftime('%I:%M%p', time.localtime())}, to = session['room'], namespace = "/chat")
+    connection_row = db.session.query(Connection).filter_by(room = session['room']).first()
+    sio.emit('game-connection', connection_row.live, to = session['room'], namespace = "/game") 
+    sio.emit('game-roominfo', {"user1": room_row.user1, "user2": room_row.user2, "user1_side": roominfo_row.user1_side, "user2_side": roominfo_row.user2_side, "time_control": roominfo_row.time_control, "increment": roominfo_row.increment}, to = session['room'], namespace = "/game")
+    game_row = db.session.query(GameInfo).filter_by(room = session['room']).first() 
+    if game_row:
+        print(json.dumps({col.name: getattr(game_row, col.name) for col in game_row.__table__.columns}, default = str))
+        sio.emit('game-gameinfo', json.dumps({col.name: getattr(game_row, col.name) for col in game_row.__table__.columns}.update({"user1": room_row.user1}), default = str), to = session['room'], namespace = "/game")
+    
+###################
+# CHAT EVENTS #
+###################
+
+@sio.on("connect", namespace = '/chat')
+def connect():
+    """
+    triggered when client connects to chat socket
+
+    :return: None
+    """
+    print(request.sid, ' connected to chat')
+
+@sio.on("join", namespace = '/chat')
+def join():
+    join_room(session['room'])
+
+@sio.on("chat_msg", namespace = '/chat')
+def chat_msg(msg):
+    if msg:
+        sio.emit('chat-msg', {"msg": msg, "time_stamp": time.strftime('%I:%M%p', time.localtime())}, to = session['room'], namespace = "/chat")
+
 
 # @sio.event
 # def disconnect():
@@ -371,6 +393,7 @@ def join():
 #     sio.emit('update-board', data, to = session['room']) # should this only be sent to the user joining
 
 # generates a unique 4-letter word from words.txt
+# test this works
 def generate_key():
     lines = set()
     while True:
@@ -386,7 +409,5 @@ def generate_key():
 def flip_side(side):
     if side == "white":
         return "black"
-    elif side == "black":
-        return "white"
     else:
-        raise Exception("invalid side input")
+        return "white"
