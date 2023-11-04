@@ -21,8 +21,6 @@ let live;
 // GAME-INFO VALUES
 let fen;
 let move_log;
-let last_move;
-let opp_last_move;
 let time_left;
 let opp_time_left;
 let score;
@@ -73,29 +71,29 @@ socket.on('game-roominfo', data => {
     document.getElementById("opp_username").innerHTML = opp_username;
     document.getElementById("scoreboard").innerHTML = username;
     document.getElementById("opp_scoreboard").innerHTML = opp_username;
+    document.getElementById("time_left").innerHTML = time_control;
+    document.getElementById("opp_time_left").innerHTML = time_control;
     board.orientation(side); 
 });
 
 socket.on('game-connection', live_value => {
     console.log("Live: " + live_value);
-    live = live;
+    live = live_value;
 });
 
 socket.on('game-gameinfo', data => {
+    data = JSON.parse(data);
+    console.log(data);
     fen = data['fen'];
     move_log = data['move_log'];
     if (username == data['user1']) {
-        last_move = data['user1_last_move'];
         time_left = data['user1_time_left'];
         score = data['user1_score'];
-        opp_last_move = data['user2_last_move'];
         opp_time_left = data['user2_time_left'];
         opp_score = data['user2_score'];
     } else {
-        last_move = data['user2_last_move'];
         time_left = data['user2_time_left'];
         score = data['user2_score'];
-        opp_last_move = data['user1_last_move'];
         opp_time_left = data['user1_time_left'];
         opp_score = data['user1_score'];
     }
@@ -103,18 +101,56 @@ socket.on('game-gameinfo', data => {
     document.getElementById("opp_score").innerHTML = opp_score;
     document.getElementById("time_left").innerHTML = time_left
     document.getElementById("opp_time_left").innerHTML = opp_time_left;
-    game = new Chess(fen);
-    //updateGameLog();
+
+    console.log(fen);
+    console.log(move_log);
+    console.log(time_left);
+    console.log(opp_time_left);
+    console.log(score);
+    console.log(opp_score);
+
+    game.load(data['fen']);
+    board.position(game.fen());
+    updateGameLog();
 });
 
 
+function updateGameLog() {
+    let moveArray = move_log.split("/");
+    moveArray.pop();
+    console.log(moveArray);
+    let gameLog = document.getElementById("game-log");
+    let gameLogLength = gameLog.children.length;
+
+    if (moveArray.length == gameLogLength){
+        console.log("got here");
+        return;
+    } else if (moveArray.length == 0){
+        gameLog.innerHTML = '';
+    } else {
+        for (let i = gameLogLength; i < moveArray.length; i++) {
+            console.log(moveArray[i]);
+            let p = document.createElement('p');
+            p.classList.add('odd:text-black', 'flex-[50%]', 'pl-2');
+            if (i % 2 == 0) {
+                p.innerHTML = (Math.floor(i / 2) + 1).toString() + ". ";
+            }
+            p.innerHTML += moveArray[i];
+            gameLog.append(p);
+        }
+    }
+    gameLog.scrollTop = gameLog.scrollHeight;
+}
+
 function onDragStart (source, piece, position, orientation) {
-    if (!live 
+    if (live != "live" 
         || !isTurn()
         || game.isGameOver()
         || (game.turn() === 'w' && piece.search(/^b/) !== -1)
-        || (game.turn() === 'b' && piece.search(/^w/) !== -1))
-        return false
+        || (game.turn() === 'b' && piece.search(/^w/) !== -1)) {
+            return false;
+        }
+        console.log("valid move");
   }
 
   function onDrop (source, target) {
@@ -126,11 +162,11 @@ function onDragStart (source, piece, position, orientation) {
       });
     }
     catch (err) {
-      return 'snapback';
+        console.log("error making move");
+        return 'snapback';
     }
-
-    //socket.emit("make_move", )
-
+    console.log("making move");
+    socket.emit('make_move', {"move": game.history().slice(-1), "fen": game.fen(), "user": username, "increment": increment});
   }
 
   function onSnapEnd() {

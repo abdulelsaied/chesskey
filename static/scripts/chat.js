@@ -14,11 +14,12 @@ chat_box.addEventListener('keypress', function(event) {
 });
 
 socket.on('chat-msg', data => {
-    console.log("msg", data['msg']);
     if (data['msg']){
         const p = document.createElement("p");
         p.classList.add('odd:text-black', 'ml-4');
         p.innerText = "[" + data['time_stamp'] + "] " + data['msg'];
-        document.getElementById("chat-box").appendChild(p);
+        let chatLog = document.getElementById("chat-box")
+        chatLog.appendChild(p);
+        chatLog.scrollTop = chatLog.scrollHeight;
     }
 });

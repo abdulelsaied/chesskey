@@ -3,7 +3,8 @@ import random
 import time
 import json
 import linecache
-from datetime import timedelta, datetime
+import datetime
+from datetime import timedelta, timezone
 from flask import Flask, render_template, redirect, url_for, request, session, flash
 from flask_socketio import SocketIO, send, join_room, leave_room
 from db import *
@@ -122,6 +123,7 @@ def join():
         print(session['room'] + " is not a room")
         return
     join_room(session['room'])
+    sio.emit('chat-msg', {"msg": session["username"] + " has joined room " + session["room"], "time_stamp": time.strftime('%I:%M%p', time.localtime())}, to = session['room'], namespace = "/chat")
     connection_row = db.session.query(Connection).filter_by(room = session['room']).first()
     roominfo_row = db.session.query(RoomInfo).filter_by(room = session['room']).first()
     if connection_row:
@@ -130,6 +132,7 @@ def join():
         elif session['username'] == room_row.user2:
             connection_row.user2_connect = True
         if connection_row.live == "init" and (connection_row.user1_connect == True and connection_row.user2_connect == True):
+            sio.emit('chat-msg', {"msg": "Game has begun!", "time_stamp": time.strftime('%I:%M%p', time.localtime())}, to = session['room'], namespace = "/chat")
             connection_row.live = "live"
             time_control = roominfo_row.time_control
             # upon creation of gameinfo, set the timer of the black player to be the current UTC timestamp 
@@ -137,8 +140,8 @@ def join():
                 room = session['room'],
                 fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
                 move_log = '',
-                user1_last_move = None,
-                user2_last_move = None,
+                user1_last_move = datetime.datetime.now(timezone.utc) if roominfo_row.user1_side == "black" else None,
+                user2_last_move = datetime.datetime.now(timezone.utc) if roominfo_row.user2_side == "black" else None,
                 user1_time_left = timedelta(minutes = int(time_control)),
                 user2_time_left = timedelta(minutes = int(time_control)),
                 user1_score = 0,
@@ -157,15 +160,35 @@ def join():
     db.session.commit()
 
     ### which one of these should be ONLY to request.sid (do both users need this information wwhen the other joins)
-    sio.emit('chat-msg', {"msg": session["username"] + " has joined room " + session["room"], "time_stamp": time.strftime('%I:%M%p', time.localtime())}, to = session['room'], namespace = "/chat")
     connection_row = db.session.query(Connection).filter_by(room = session['room']).first()
     sio.emit('game-connection', connection_row.live, to = session['room'], namespace = "/game") 
-    sio.emit('game-roominfo', {"user1": room_row.user1, "user2": room_row.user2, "user1_side": roominfo_row.user1_side, "user2_side": roominfo_row.user2_side, "time_control": roominfo_row.time_control, "increment": roominfo_row.increment}, to = session['room'], namespace = "/game")
+    sio.emit('game-roominfo', {"user1": room_row.user1, "user2": room_row.user2, "user1_side": roominfo_row.user1_side, "user2_side": roominfo_row.user2_side, "time_control": str(timedelta(minutes = int(roominfo_row.time_control))), "increment": roominfo_row.increment}, to = session['room'], namespace = "/game")
     game_row = db.session.query(GameInfo).filter_by(room = session['room']).first() 
     if game_row:
-        print(json.dumps({col.name: getattr(game_row, col.name) for col in game_row.__table__.columns}, default = str))
-        sio.emit('game-gameinfo', json.dumps({col.name: getattr(game_row, col.name) for col in game_row.__table__.columns}.update({"user1": room_row.user1}), default = str), to = session['room'], namespace = "/game")
-    
+        game_dict = {col.name: getattr(game_row, col.name) for col in game_row.__table__.columns}
+        game_dict.update({"user1": room_row.user1})
+        print(json.dumps(game_dict, default = str))
+        sio.emit('game-gameinfo', json.dumps(game_dict, default = str), to = session['room'], namespace = "/game")
+
+@sio.on("make_move", namespace = '/game')
+def make_move(data):
+    room_row = db.session.query(Rooms).filter_by(room = session['room']).first()
+    game_row = db.session.query(GameInfo).filter_by(room = session['room']).first()
+    game_row.fen = data['fen']
+    game_row.move_log += str(data['move'][0]) + '/' 
+    if data['user'] == room_row.user1:
+        game_row.user1_last_move = datetime.datetime.now(timezone.utc)
+        game_row.user1_time_left = game_row.user1_time_left - (game_row.user2_last_move.replace(tzinfo = timezone.utc) - datetime.datetime.now(timezone.utc)) #+ timedelta(seconds = int(data['increment']))
+    elif data['user'] == room_row.user2:
+        game_row.user2_last_move = datetime.datetime.now(timezone.utc)
+        game_row.user2_time_left = game_row.user2_time_left - (game_row.user1_last_move.replace(tzinfo = timezone.utc) - datetime.datetime.now(timezone.utc))#+ timedelta(seconds = int(data['increment']))
+    db.session.commit()
+
+    game_dict = {col.name: getattr(game_row, col.name) for col in game_row.__table__.columns}
+    game_dict.update({"user1": room_row.user1})
+    print(json.dumps(game_dict, default = str))
+    sio.emit('game-gameinfo', json.dumps(game_dict, default = str), to = session['room'], namespace = "/game")
+
 ###################
 # CHAT EVENTS #
 ###################
