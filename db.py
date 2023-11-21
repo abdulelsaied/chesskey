@@ -27,6 +27,7 @@ class Connection(db.Model):
     user1_connect = db.Column(db.Boolean, unique = False, nullable = False)
     user2_connect = db.Column(db.Boolean, unique = False, nullable = False)
     live = db.Column(db.String(4), unique = False, nullable = False)
+    ## ADD FLAG FOR WINNER AND REASON OF LAST GAME ENDING
 
 class GameInfo(db.Model):
     __tablename__ = "gameinfo"
@@ -37,5 +38,5 @@ class GameInfo(db.Model):
     user2_last_move = db.Column(db.TIMESTAMP, unique = False, nullable = True)
     user1_time_left = db.Column(db.Interval, unique = False, nullable = True)
     user2_time_left = db.Column(db.Interval, unique = False, nullable = True)
-    user1_score = db.Column(db.Integer, unique = False, nullable = False)
-    user2_score = db.Column(db.Integer, unique = False, nullable = False)
+    user1_score = db.Column(db.Float, unique = False, nullable = False)
+    user2_score = db.Column(db.Float, unique = False, nullable = False)

@@ -15,56 +15,30 @@
     <div id = "username-data" data-value = "{{ data['username'] }}"></div>
     <div id = "room-data" data-value = "{{ data['room'] }}"></div>
   </div>
-  <button type = "button" id = "usernameButton" class="hidden" data-modal-target="usernameModal" data-modal-toggle="usernameModal"></button>
 
-  <div id="usernameModal" tabindex="-1" aria-hidden="true" class="fixed top-0 left-0 right-0 z-50 hidden w-full p-2 overflow-x-hidden overflow-y-auto md:inset-0 h-[calc(100%-1rem)] max-h-full"> 
-    <div class="relative w-full max-w-lg max-h-full">
-        <!-- Modal content -->
-        <div class="relative bg-purple-600 rounded-lg dark:bg-gray-700">
-            <div class="px-4 py-8">
-              <h3 class= "text-xl font-bold text-white dark:text-white text-center">Set Username</h3>
-              <hr class="h-px my-4 bg-white border-0 dark:bg-gray-700">
-              <form method = "post" class="space-y-8">
-
-                  <div>
-                      <label for="text" class="block mb-2 text-sm text-xl font-bold text-white dark:text-white">username:</label>
-                      <input type="text" name = "username" class="text-white text-sm bg-purple-600 border-white rounded-lg focus:ring-white focus:border-white block w-full p-2.5" placeholder="" required minlength = "1" maxlength = "15">
-                      <p id="helper-text-explanation" class="mt-2 text-sm text-white dark:text-gray-400">1 to 15 characters required.</p>
-                  </div>
-
-                  <div class = "flex justify-center space-x-4">
-                      <button type = "submit" name = "usernameSubmit" class = "p-2 bg-white text-purple-600 hover:text-purple-900 font-bold rounded-lg text-sm px-5 py-2.5">Start Game!</button>
-                  </div>
-              </form>
-            </div>
-        </div>
-    </div>
-  </div>  
-
-    <div class = "bg-purple-500 container mx-auto w-max border-4 border-white rounded-3xl mt-[3vh] mb-[3vh] px-2 text-white text-center text-2xl tracking-wider" data-tooltip-target="tooltip-right" data-tooltip-placement="right">
+    <div class = "bg-purple-500 container mx-auto w-max border-4 border-white rounded-3xl mt-[3vh] mb-[3vh] px-2 text-white text-center text-2xl tracking-wider" data-tooltip-target="tooltip-link" data-tooltip-placement="right" data-tooltip-style = "light">
       <p id = "link"></p>
     </div>
-    <div id="tooltip-right" role="tooltip" class="absolute z-10 invisible inline-block px-3 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg shadow-sm opacity-0 tooltip dark:bg-gray-700">
+    <div id="tooltip-link" role="tooltip" class="absolute z-10 invisible inline-block px-3 py-2 text-sm font-medium text-black bg-white rounded-lg shadow-sm opacity-0 tooltip dark:bg-gray-700">
       Copy to clipboard
       <div class="tooltip-arrow" data-popper-arrow></div>
     </div>
     <div class="flex container mx-auto w-4/5 h-[80vh] space-x-8">
       <div class="flex flex-col basis-1/2">
         <div class = "flex gap-x-4">
-          <h3 id = "opp_username" class = "text-white"></h3>
-          <h3 id = "opp_time_left" class = "text-white border-2 border-white rounded-2xl"></h3>
+          <h3 id = "opp_username" class = "text-white font-bold"></h3>
+          <h3 id = "opp_time_left" class = "text-white border-2 border-white rounded-2xl px-2"></h3>
         </div>
         <div id = "board1" class = ""></div>
         <div class = "flex gap-x-4">
-          <h3 id = "username" class = "text-white"></h3>
-          <h3 id = "time_left" class = "text-white border-2 border-white rounded-2xl"></h3>
+          <h3 id = "username" class = "text-white font-bold"></h3>
+          <h3 id = "time_left" class = "text-white border-2 border-white rounded-2xl px-2"></h3>
         </div>
       </div>
       <div class="basis-1/2 flex flex-col space-y-4">
         <div class = "h-2/5 bg-purple-500 rounded-3xl border-white border-4 flex flex-col divide-y">
           <h3 class= "text-xl font-bold text-white dark:text-white text-center">Game Log</h3>
           <div id = "game-log" class = "flex flex-wrap overflow-auto text-white">
-
           </div>
         </div>
 
@@ -77,8 +51,42 @@
             <h3 id = "opp_scoreboard" class= "text-xl font-bold text-white"></h3>
           </div>
           <div class = "game-buttons flex border-4 border-white rounded-bl-xl rounded-br-xl grow"> 
-            <button type = "button" class = "bg-white text-purple-600 hover:text-purple-900 font-bold rounded-3-xl text-sm grow border-r-4 border-black">Offer Draw</button>
-            <button type = "button" class = "bg-white text-purple-600 hover:text-purple-900 font-bold rounded-3-xl text-sm grow">Resign</button>
+            <button id = "draw-button" type = "button" class = "bg-white text-purple-600 hover:text-purple-900 font-bold rounded-3-xl text-sm grow border-r-4 border-black" data-tooltip-target="tooltip-draw" data-tooltip-trigger="click" data-tooltip-placement="top" data-tooltip-style = "dark">Offer Draw</button>
+            <div id="tooltip-draw" role="tooltip" class="absolute z-10 invisible inline-block px-3 py-2 text-sm font-medium text-white bg-black rounded-lg shadow-sm opacity-0 tooltip dark:bg-gray-700">
+              <p>Are you sure?</p> 
+              <div class = "flex justify-around">
+                <button type = "button" id = "draw-confirm" class = "bg-white text-black rounded-full border-black border-2 px-2">Yes</button>
+                <button type = "button" id = "draw-deny" class = "bg-white text-black rounded-full border-black border-2 px-2">No</button>
+              </div>
+              <div class="tooltip-arrow" data-popper-arrow></div>
+            </div>
+            <button id = "resign-button" type = "button" class = "bg-white text-purple-600 hover:text-purple-900 font-bold rounded-3-xl text-sm grow" data-tooltip-target="tooltip-resign" data-tooltip-trigger="click" data-tooltip-placement="top" data-tooltip-style = "dark">Resign</button>
+            <div id="tooltip-resign" role="tooltip" class="absolute z-10 invisible inline-block px-3 py-2 text-sm font-medium text-white bg-black rounded-lg shadow-sm opacity-0 tooltip dark:bg-gray-700">
+              <p>Are you sure?</p> 
+              <div class = "flex justify-around">
+                <button type = "button" id = "resign-confirm" class = "bg-white text-black rounded-full border-black border-2 px-2">Yes</button>
+                <button type = "button" id = "resign-deny" class = "bg-white text-black rounded-full border-black border-2 px-2">No</button>
+              </div>
+              <div class="tooltip-arrow" data-popper-arrow></div>
+            </div>
+            <button id = "rematch-button" type = "button" class = "hidden bg-white text-purple-600 hover:text-purple-900 font-bold rounded-3-xl border-r-4 text-sm grow" data-tooltip-target="tooltip-rematch" data-tooltip-trigger="click" data-tooltip-placement="top" data-tooltip-style = "dark">Rematch</button>
+            <div id="tooltip-rematch" role="tooltip" class="absolute z-10 invisible inline-block px-3 py-2 text-sm font-medium text-white bg-black rounded-lg shadow-sm opacity-0 tooltip dark:bg-gray-700">
+              <p>Are you sure?</p> 
+              <div class = "flex justify-around">
+                <button type = "button" id = "rematch-confirm" class = "bg-white text-black rounded-full border-black border-2 px-2">Yes</button>
+                <button type = "button" id = "rematch-deny" class = "bg-white text-black rounded-full border-black border-2 px-2">No</button>
+              </div>
+              <div class="tooltip-arrow" data-popper-arrow></div>
+            </div>
+            <button id = "newgame-button" type = "button" class = "hidden bg-white text-purple-600 hover:text-purple-900 font-bold rounded-3-xl text-sm grow" data-tooltip-target="tooltip-newgame" data-tooltip-trigger="click" data-tooltip-placement="top" data-tooltip-style = "dark">New Game</button>
+            <div id="tooltip-newgame" role="tooltip" class="absolute z-10 invisible inline-block px-3 py-2 text-sm font-medium text-white bg-black rounded-lg shadow-sm opacity-0 tooltip dark:bg-gray-700">
+              <p>Are you sure?</p> 
+              <div class = "flex justify-around">
+                <button type = "button" id = "newgame-confirm" class = "bg-white text-black rounded-full border-black border-2 px-2">Yes</button>
+                <button type = "button" id = "newgame-deny" class = "bg-white text-black rounded-full border-black border-2 px-2">No</button>
+              </div>
+              <div class="tooltip-arrow" data-popper-arrow></div>
+            </div>
           </div>
         </div>
 
@@ -91,6 +99,53 @@
         </div>
       </div>
     </div>
+
+    <button type = "button" id = "usernameButton" class="hidden" data-modal-target="usernameModal" data-modal-toggle="usernameModal"></button>
+    <div id="usernameModal" tabindex="-1" aria-hidden="true" class="fixed top-0 left-0 right-0 z-50 hidden w-full p-2 overflow-x-hidden overflow-y-auto md:inset-0 h-[calc(100%-1rem)] max-h-full"> 
+      <div class="relative w-full max-w-lg max-h-full">
+          <!-- Modal content -->
+          <div class="relative bg-purple-600 rounded-lg dark:bg-gray-700">
+              <div class="px-4 py-8">
+                <h3 class= "text-xl font-bold text-white dark:text-white text-center">Set Username</h3>
+                <hr class="h-px my-4 bg-white border-0 dark:bg-gray-700">
+                <form method = "post" class="space-y-8">
+
+                    <div>
+                        <label for="text" class="block mb-2 text-sm text-xl font-bold text-white dark:text-white">username:</label>
+                        <input type="text" name = "username" class="text-white text-sm bg-purple-600 border-white rounded-lg focus:ring-white focus:border-white block w-full p-2.5" placeholder="" required minlength = "1" maxlength = "15">
+                        <p id="helper-text-explanation" class="mt-2 text-sm text-white dark:text-gray-400">1 to 15 characters required.</p>
+                    </div>
+
+                    <div class = "flex justify-center space-x-4">
+                        <button type = "submit" name = "usernameSubmit" class = "p-2 bg-white text-purple-600 hover:text-purple-900 font-bold rounded-lg text-sm px-5 py-2.5">Start Game!</button>
+                    </div>
+                </form>
+              </div>
+          </div>
+      </div>
+    </div>  
+
+  <button type = "button" id = "gameOverButton" class="hidden" data-modal-target="gameOverModal" data-modal-toggle="gameOverModal"></button>
+  <div id="gameOverModal" tabindex="-1" aria-hidden="true" class="fixed top-0 left-0 right-0 z-50 hidden w-full p-2 overflow-x-hidden overflow-y-auto md:inset-0 h-[calc(100%-1rem)] max-h-full"> 
+    <div class="relative w-full max-w-lg max-h-full">
+        <!-- Modal content -->
+        <div class="relative bg-purple-600 rounded-lg dark:bg-gray-700">
+            <div class="px-4 py-8">
+              <h3 id = "gameOverText" class = "text-xl font-bold text-white dark:text-white text-center"></h3>
+              <p id = "gameOverSubtext" class = "text-large font-bold text-white dark:text-white text-center"></p>
+              <hr class="h-px my-4 bg-white border-0 dark:bg-gray-700">
+              <div class = "game-score flex grow items-center justify-around">
+                <h3 id = "modal-username" class= "text-xl font-bold text-white"></h3>
+                <p id = "modal-score" class = "border-2 border-white text-white px-1 py-1"></p>
+                <span class = "text-white">-</span>
+                <p id = "opp-modal-score" class = "border-2 border-white text-white px-1 py-1"></p>
+                <h3 id = "opp-modal-username" class= "text-xl font-bold text-white"></h3>
+              </div>
+            </div>
+        </div>
+    </div>
+  </div> 
+
 </body>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js" integrity="sha512-q/dWJ3kcmjBLU4Qc47E4A9kTB4m3wuTY7vkFJDTZKjTs8jhyGQnaUrxa0Ytd0ssMZhbNua9hE+E7Qv1j+DyZwA==" crossorigin="anonymous"></script>

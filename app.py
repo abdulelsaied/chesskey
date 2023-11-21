@@ -60,6 +60,7 @@ def index():
             session['room'] = room_key
             session['username'] = request.form.get("username") 
             if session['username'] == room_row.user1:
+                print("same username as user1 inputted")
                 if len(session['username']) == 15:
                     session['username'] = session['username'][:-1]        
                 session['username'] += "1"  
@@ -78,7 +79,7 @@ def create_room(room):
     :param lobby: unique string for a chess lobby
     :return: None
     """
-    if room == "favicon.ico":
+    if room == "favicon.ico" or (request.method == 'POST' and request.form.get('msg') == 'index'):
         return redirect(url_for("index"))
     room_row = db.session.query(Rooms).filter_by(room = room).first()
     if not room_row:
@@ -122,6 +123,7 @@ def join():
     if not room_row:
         print(session['room'] + " is not a room")
         return
+    print(session['room'])
     join_room(session['room'])
     sio.emit('chat-msg', {"msg": session["username"] + " has joined room " + session["room"], "time_stamp": time.strftime('%I:%M%p', time.localtime())}, to = session['room'], namespace = "/chat")
     connection_row = db.session.query(Connection).filter_by(room = session['room']).first()
@@ -161,8 +163,8 @@ def join():
 
     ### which one of these should be ONLY to request.sid (do both users need this information wwhen the other joins)
     connection_row = db.session.query(Connection).filter_by(room = session['room']).first()
-    sio.emit('game-connection', connection_row.live, to = session['room'], namespace = "/game") 
     sio.emit('game-roominfo', {"user1": room_row.user1, "user2": room_row.user2, "user1_side": roominfo_row.user1_side, "user2_side": roominfo_row.user2_side, "time_control": str(timedelta(minutes = int(roominfo_row.time_control))), "increment": roominfo_row.increment}, to = session['room'], namespace = "/game")
+    sio.emit('game-connection', {"live": connection_row.live}, to = session['room'], namespace = "/game") 
     game_row = db.session.query(GameInfo).filter_by(room = session['room']).first() 
     if game_row:
         game_dict = {col.name: getattr(game_row, col.name) for col in game_row.__table__.columns}
@@ -178,16 +180,86 @@ def make_move(data):
     game_row.move_log += str(data['move'][0]) + '/' 
     if data['user'] == room_row.user1:
         game_row.user1_last_move = datetime.datetime.now(timezone.utc)
-        game_row.user1_time_left = game_row.user1_time_left - (game_row.user2_last_move.replace(tzinfo = timezone.utc) - datetime.datetime.now(timezone.utc)) #+ timedelta(seconds = int(data['increment']))
+        game_row.user1_time_left = game_row.user1_time_left - (datetime.datetime.now(timezone.utc) - game_row.user2_last_move.replace(tzinfo = timezone.utc)) #+ timedelta(seconds = int(data['increment']))
     elif data['user'] == room_row.user2:
         game_row.user2_last_move = datetime.datetime.now(timezone.utc)
-        game_row.user2_time_left = game_row.user2_time_left - (game_row.user1_last_move.replace(tzinfo = timezone.utc) - datetime.datetime.now(timezone.utc))#+ timedelta(seconds = int(data['increment']))
+        game_row.user2_time_left = game_row.user2_time_left - (datetime.datetime.now(timezone.utc) - game_row.user1_last_move.replace(tzinfo = timezone.utc))#+ timedelta(seconds = int(data['increment']))
     db.session.commit()
 
     game_dict = {col.name: getattr(game_row, col.name) for col in game_row.__table__.columns}
     game_dict.update({"user1": room_row.user1})
     print(json.dumps(game_dict, default = str))
     sio.emit('game-gameinfo', json.dumps(game_dict, default = str), to = session['room'], namespace = "/game")
+
+@sio.on("game_over", namespace = "/game")
+def game_over(data):
+    connection_row = db.session.query(Connection).filter_by(room = session['room']).first()
+    connection_row.live = "over"
+
+    room_row = db.session.query(Rooms).filter_by(room = session['room']).first()
+    roominfo_row = db.session.query(RoomInfo).filter_by(room = session['room']).first()
+    game_row = db.session.query(GameInfo).filter_by(room = session['room']).first()
+    if data['flag'] == 0:
+        game_row.user1_score += 0.5
+        game_row.user2_score += 0.5
+    elif data['flag'] == 1:
+        if roominfo_row.user1_side == data['side']:
+            game_row.user1_score += 1
+        else: 
+            game_row.user2_score += 1 
+
+    db.session.commit() 
+    game_dict = {col.name: getattr(game_row, col.name) for col in game_row.__table__.columns}
+    game_dict.update({"user1": room_row.user1})
+
+    sio.emit('game-gameinfo', json.dumps(game_dict, default = str), to = session['room'], namespace = "/game")
+    sio.emit('game-connection', {"live": connection_row.live, "side": data['side'], "reason": data['reason'], "flag": data['flag']}, to = session['room'], namespace = "/game") 
+
+@sio.on("new_game", namespace = "/game")
+def new_game():
+
+    room_row = db.session.query(Rooms).filter_by(room = session['room']).first()
+
+    roominfo_row = db.session.query(RoomInfo).filter_by(room = session['room']).first()
+    roominfo_row.user1_side = flip_side(roominfo_row.user1_side)
+    roominfo_row.user2_side = flip_side(roominfo_row.user2_side)
+    db.session.commit()
+
+    connection_row = db.session.query(Connection).filter_by(room = session['room']).first()
+    connection_row.live = "live"
+
+    game_row = db.session.query(GameInfo).filter_by(room = session['room']).first()
+    game_row.fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
+    game_row.move_log = ''
+    game_row.user1_last_move = datetime.datetime.now(timezone.utc) if roominfo_row.user1_side == "black" else None
+    game_row.user2_last_move = datetime.datetime.now(timezone.utc) if roominfo_row.user2_side == "black" else None
+    game_row.user1_time_left = timedelta(minutes = int(roominfo_row.time_control))
+    game_row.user2_time_left = timedelta(minutes = int(roominfo_row.time_control))
+
+    db.session.commit()
+
+    game_dict = {col.name: getattr(game_row, col.name) for col in game_row.__table__.columns}
+    game_dict.update({"user1": room_row.user1})
+    print("new game dict ")
+    print("-----")
+    print(game_dict)
+
+    sio.emit('game-roominfo', {"user1": room_row.user1, "user2": room_row.user2, "user1_side": roominfo_row.user1_side, "user2_side": roominfo_row.user2_side, "time_control": str(timedelta(minutes = int(roominfo_row.time_control))), "increment": roominfo_row.increment}, to = session['room'], namespace = "/game")
+    sio.emit('game-gameinfo', json.dumps(game_dict, default = str), to = session['room'], namespace = "/game")
+    sio.emit('game-connection', {"live": connection_row.live}, to = session['room'], namespace = "/game") 
+
+@sio.on("draw_request", namespace = "/game")
+def draw_request(data):
+    data['time_stamp'] = time.strftime('%I:%M%p', time.localtime())
+    sio.emit('display-draw-request', data, to = session['room'], namespace = "/game")
+
+@sio.on("rematch_request", namespace = "/game")
+def rematch_request(data):
+    data['time_stamp'] = time.strftime('%I:%M%p', time.localtime())
+    sio.emit('display-rematch-request', data, to = session['room'], namespace = "/game")
+
+
+
 
 ###################
 # CHAT EVENTS #
@@ -236,34 +308,6 @@ def chat_msg(msg):
 #         sio.emit('route-index', to = request.sid)
 #     print(request.sid, ' disconnected')
 
-# @sio.event
-# def join(join_time):
-#     """
-#     connects a user to the desired room, and broadcasts that they connected to all users of the room
-#     updates db and UI to account for join
-
-#     :return: None
-#     """
-#     if session.get('room'):
-#         room_row = db.session.query(Room).filter_by(room = session['room']).first()
-#         if not room_row:
-#             sio.emit('route-index', to = request.sid)
-#         join_room(session['room'])
-#         time_stamp = time.strftime('%b-%d %I:%M%p', time.localtime())
-#         sio.emit('incoming-status-msg', {"msg": session['username'] + " has joined room " + session['room'], 'time_stamp': time_stamp}, to = session['room'])
-#         if session['username'] == room_row.user1:
-#             room_row.user1_connect = True 
-#         elif session['username'] == room_row.user2:
-#             room_row.user2_connect = True
-#         if room_row.live == False and (room_row.user1_connect == True and room_row.user2_connect == True): 
-#             room_row.live = True
-#             if room_row.user2_side == "black":
-#                 room_row.user2_last_move = join_time 
-#             else:
-#                 room_row.user1_last_move = join_time
-#             sio.emit('initialize-timers', to = session['room'])
-#         db.session.commit()
-#         sio.emit('update-ui', json.dumps({col.name: getattr(room_row, col.name) for col in room_row.__table__.columns}, default = str), to = session['room'])
 # @sio.event
 # def close_room():
 #     """
@@ -316,91 +360,6 @@ def chat_msg(msg):
 #     sio.emit('update-ui', {col.name: getattr(room_row, col.name) for col in room_row.__table__.columns}, to = session['room'])
 
 # @sio.event
-# def request_draw(user):
-#     """
-#     sends draw request to user, triggered by the other user
-
-#     :param user: unique string for a user
-#     :return: None
-#     """
-#     room_row = db.session.query(Room).filter_by(room = session['room']).first()
-#     if not room_row:
-#         sio.emit('route-index', to = request.sid)
-#         return
-#     sio.emit('send-draw-request', user, to = session['room'])
-
-# @sio.event
-# def draw_result(draw):
-#     """
-#     sends draw result to both users in the room
-
-#     :param draw: bool for whether or not the draw was accepted
-#     :return: None
-#     """
-#     room_row = db.session.query(Room).filter_by(room = session['room']).first()
-#     if not room_row:
-#         sio.emit('route-index', to = request.sid)
-#         return
-#     if draw:
-#         room_row.live = False
-#         # update score values in db here 
-#         db.session.commit()
-#     sio.emit('trigger-draw', draw, to = session['room'])
-
-# @sio.event
-# def resign_result(resign):
-#     room_row = db.session.query(Room).filter_by(room = session['room']).first()
-#     if not room_row:
-#         print("error")
-#         flash("Lobby " + session['room'] + " doesn't exist!", 'error')
-#     if resign:
-#         room_row.live = False
-#         db.session.commit()
-#     sio.emit('trigger-resign', {"resign": resign, "user": session['username']}, to = session['room'])
-
-
-# @sio.event
-# def request_resign():
-#     room_row = db.session.query(Room).filter_by(room = session['room']).first()
-#     if not room_row:
-#         print("error")
-#         flash("Lobby " + session['room'] + " doesn't exist!", 'error')
-#     sio.emit('send-resign-request', to = request.sid)
-
-# @sio.event
-# def request_rematch(user):
-#     room_row = db.session.query(Room).filter_by(room = session['room']).first()
-#     if not room_row:
-#         print("error")
-#         flash("Lobby " + session['room'] + " doesn't exist!", 'error')
-#     if not room_row.live and room_row.user1_connect and room_row.user2_connect:
-#         sio.emit('send-rematch-request', user, to = session['room'])
-    
-# @sio.event
-# def rematch_result(rematch):
-#     room_row = db.session.query(Room).filter_by(room = session['room']).first()
-#     if not room_row:
-#         print("error")
-#         flash("Lobby " + session['room'] + " doesn't exist!", 'error')
-    
-#     sio.emit('trigger-rematch', rematch, to = session['room'])
-
-# @sio.event
-# def incoming_msg(data):
-#     """
-#     broadcasts message to all users in the desired room, with a timestamp of when they sent it
-
-#     :param data: a dict in the form (username, room, message)
-#     :return: None
-#     """
-#     username = data["username"]
-#     room = data["room"]
-#     msg = data["msg"]
-#     time_stamp = time.strftime('%b-%d %I:%M%p', time.localtime())
-#     send({"username": username, "msg": msg, "time_stamp": time_stamp}, to = room)
-    
-
-# @sio.event
 # def update(data):
 #     room_row = db.session.query(Room).filter_by(room = session['room']).first()
 #     room_row.fen = data['fen']
@@ -422,10 +381,10 @@ def generate_key():
     while True:
         line = random.randint(1, 500)
         if line not in lines:
-            result = linecache.getline("words.txt", line)
+            result = linecache.getline("words.txt", line).rstrip('\n')
             if not db.session.query(Rooms).filter_by(room = result).first():
-                print(result.rstrip('\n'))
-                return result.rstrip('\n')
+                print(result)
+                return result
             set.add(line)
 
 # gets the opposite side for the given input side
