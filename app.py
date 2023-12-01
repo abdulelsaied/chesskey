@@ -175,15 +175,20 @@ def join():
 @sio.on("make_move", namespace = '/game')
 def make_move(data):
     room_row = db.session.query(Rooms).filter_by(room = session['room']).first()
+    roominfo_row = db.session.query(RoomInfo).filter_by(room = session['room']).first()
     game_row = db.session.query(GameInfo).filter_by(room = session['room']).first()
     game_row.fen = data['fen']
     game_row.move_log += str(data['move'][0]) + '/' 
     if data['user'] == room_row.user1:
         game_row.user1_last_move = datetime.datetime.now(timezone.utc)
-        game_row.user1_time_left = game_row.user1_time_left - (datetime.datetime.now(timezone.utc) - game_row.user2_last_move.replace(tzinfo = timezone.utc)) #+ timedelta(seconds = int(data['increment']))
+        game_row.user1_time_left = game_row.user1_time_left - (datetime.datetime.now(timezone.utc) - game_row.user2_last_move.replace(tzinfo = timezone.utc)) + timedelta(seconds = int(data['increment']))
+        if game_row.user1_time_left < timedelta(0):
+            game_over({"flag": 1, "side": roominfo_row.user2_side, "reason": "by timeout"})
     elif data['user'] == room_row.user2:
         game_row.user2_last_move = datetime.datetime.now(timezone.utc)
-        game_row.user2_time_left = game_row.user2_time_left - (datetime.datetime.now(timezone.utc) - game_row.user1_last_move.replace(tzinfo = timezone.utc))#+ timedelta(seconds = int(data['increment']))
+        game_row.user2_time_left = game_row.user2_time_left - (datetime.datetime.now(timezone.utc) - game_row.user1_last_move.replace(tzinfo = timezone.utc)) + timedelta(seconds = int(data['increment']))
+        if game_row.user2_time_left < timedelta(0):
+            game_over({"flag": 1, "side": roominfo_row.user1_side, "reason": "by timeout"})
     db.session.commit()
 
     game_dict = {col.name: getattr(game_row, col.name) for col in game_row.__table__.columns}
@@ -385,7 +390,7 @@ def generate_key():
             if not db.session.query(Rooms).filter_by(room = result).first():
                 print(result)
                 return result
-            set.add(line)
+            lines.add(line)
 
 # gets the opposite side for the given input side
 def flip_side(side):

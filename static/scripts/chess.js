@@ -1,8 +1,20 @@
 import { Chess } from '../node_modules/chess.js/dist/chess.js'
 
+// import { Timer } from '../scripts/easytimer.js'
+
 document.addEventListener('DOMContentLoaded', () => {
 
 const socket = io('/game');
+
+// TIMER VALUES
+let timer = new easytimer.Timer();
+let opp_timer = new easytimer.Timer();
+// timer.addEventListener('secondsUpdated', function (e) {
+//     $('#basicUsage').html(timer.getTimeValues().toString());
+// });
+
+
+
 
 // HTML-READ VALUES
 let room = document.getElementById("room-data").getAttribute("data-value");
@@ -70,7 +82,7 @@ socket.on('game-roominfo', data => {
     document.getElementById("opp_username").innerHTML = opp_username;
     document.getElementById("scoreboard").innerHTML = username;
     document.getElementById("opp_scoreboard").innerHTML = opp_username;
-    document.getElementById("time_left").innerHTML = time_control;
+    document.getElementById("time_left").innerHTML = time_control; // edit this to look like the easyTimer start value
     document.getElementById("opp_time_left").innerHTML = time_control;
     board.orientation(side); 
     console.log(side);
@@ -134,6 +146,9 @@ socket.on('game-gameinfo', data => {
     console.log(data);
     fen = data['fen'];
     move_log = data['move_log'];
+    game.load(data['fen']);
+    board.position(game.fen());
+    updateGameLog();
     if (username == data['user1']) {
         time_left = data['user1_time_left'];
         score = data['user1_score'];
@@ -145,10 +160,21 @@ socket.on('game-gameinfo', data => {
         opp_time_left = data['user1_time_left'];
         opp_score = data['user1_score'];
     }
+    if (isTurn()) {
+        console.log(intervalToSeconds(time_left));
+        timer.start({countdown: true, startValues: {seconds: intervalToSeconds(time_left) + parseInt(increment)}});
+        opp_timer.start({countdown: true, startValues: {seconds: intervalToSeconds(opp_time_left) + parseInt(increment)}});
+        opp_timer.stop();
+
+    } else {
+        console.log(intervalToSeconds(opp_time_left));
+        timer.start({countdown: true, startValues: {seconds: intervalToSeconds(time_left) + parseInt(increment)}});
+        opp_timer.start({countdown: true, startValues: {seconds: intervalToSeconds(opp_time_left) + parseInt(increment)}})
+        timer.stop();
+    }
+    setTimers();
     document.getElementById("score").innerHTML = score;
     document.getElementById("opp_score").innerHTML = opp_score;
-    document.getElementById("time_left").innerHTML = beautifyTimeLeft(time_left);
-    document.getElementById("opp_time_left").innerHTML = beautifyTimeLeft(opp_time_left);
 
     console.log(fen);
     console.log(move_log);
@@ -156,10 +182,6 @@ socket.on('game-gameinfo', data => {
     console.log(opp_time_left);
     console.log(score);
     console.log(opp_score);
-
-    game.load(data['fen']);
-    board.position(game.fen());
-    updateGameLog();
 });
 
 socket.on('display-draw-request', data => {
@@ -350,14 +372,35 @@ function onDragStart (source, piece, position, orientation) {
 
   // strip of milliseconds
 
-  function beautifyTimeLeft(time_left) {
+  function beautifyTimeLeft(timeLeft) {
       try {
-        return time_left.split(".")[0];
+        return timeLeft.split(".")[0];
       } catch (error) {
           console.log(error);
-          return time;
+          return timeLeft;
       }
   }
+
+  function intervalToSeconds (timeLeft) {
+    let fractionalSeconds = 0;
+    let timeLeftArr = timeLeft.split(".");
+    if (timeLeftArr.length > 1) {
+        fractionalSeconds = parseInt(timeLeftArr[1]);
+    }
+
+    let rest = timeLeftArr[0].split(":");
+    return parseInt(rest[2]) + parseInt(rest[1]) * 60 + parseInt(rest[0]) * 3600 + fractionalSeconds / 1000000;
+
+  }
+
+  function setTimers() {
+    timer.addEventListener('secondsUpdated', function (e) {
+        $('#time_left').html(timer.getTimeValues().toString());
+    });
+    opp_timer.addEventListener('secondsUpdated', function (e) {
+        $('#opp_time_left').html(opp_timer.getTimeValues().toString());
+    });
+}
 
   let link_elem = document.getElementById("link");
   link_elem.addEventListener("click", () => {

@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "chess js libraries",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -10,6 +11,7 @@
   "license": "ISC",
   "dependencies": {
     "@chrisoakman/chessboardjs": "^1.0.0",
-    "chess.js": "^1.0.0-beta.4"
+    "chess.js": "^1.0.0-beta.4",
+    "easytimer.js": "^4.6.0"
   }
 }
