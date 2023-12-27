@@ -117,15 +117,37 @@ def connect():
     """
     print(request.sid, ' connected to game')
 
+# @sio.on("disconnect", namespace = "/game")
+# def disconnect():
+#     """
+#     triggered when client disconnects to SocketIO
+#     user is removed from their room, and the disconnect flag is set to True in case they come back within 20 seconds
+
+#     :return: None
+#     """
+#     if session.get('room'):
+#         sio.emit('chat-msg', {"msg": session["username"] + " has left room " + session["room"]}, to = session["room"])
+#         leave_room(session["room"])
+#         room_row = db.session.query(Room).filter_by(room = session['room']).first()
+#         if not room_row:
+#             sio.emit('route-index', to = request.sid)
+#         elif session['username'] == room_row.user1:
+#             room_row.user1_connect = False
+#         elif session['username'] == room_row.user2:
+#             room_row.user2_connect = False
+#         db.session.commit()
+#     else:
+#         sio.emit('route-index', to = request.sid)
+#     print(request.sid, ' disconnected')
+
 @sio.on("join", namespace = '/game')
 def join():
     room_row = db.session.query(Rooms).filter_by(room = session['room']).first()
     if not room_row:
         print(session['room'] + " is not a room")
         return
-    print(session['room'])
     join_room(session['room'])
-    sio.emit('chat-msg', {"msg": session["username"] + " has joined room " + session["room"], "time_stamp": time.strftime('%I:%M%p', time.localtime())}, to = session['room'], namespace = "/chat")
+    sio.emit('chat-msg', session["username"] + " has joined room " + session["room"], to = session['room'], namespace = "/chat")
     connection_row = db.session.query(Connection).filter_by(room = session['room']).first()
     roominfo_row = db.session.query(RoomInfo).filter_by(room = session['room']).first()
     if connection_row:
@@ -134,7 +156,8 @@ def join():
         elif session['username'] == room_row.user2:
             connection_row.user2_connect = True
         if connection_row.live == "init" and (connection_row.user1_connect == True and connection_row.user2_connect == True):
-            sio.emit('chat-msg', {"msg": "Game has begun!", "time_stamp": time.strftime('%I:%M%p', time.localtime())}, to = session['room'], namespace = "/chat")
+            sio.emit('chat-msg', "Game has begun!", to = session['room'], namespace = "/chat")
+            sio.emit('play-sound', "start", to = session['room'], namespace = "/game")
             connection_row.live = "live"
             time_control = roominfo_row.time_control
             # upon creation of gameinfo, set the timer of the black player to be the current UTC timestamp 
@@ -253,18 +276,29 @@ def new_game():
     sio.emit('game-gameinfo', json.dumps(game_dict, default = str), to = session['room'], namespace = "/game")
     sio.emit('game-connection', {"live": connection_row.live}, to = session['room'], namespace = "/game") 
 
+    sio.emit('play-sound', "start", to = session['room'], namespace = "/game")
+
 @sio.on("draw_request", namespace = "/game")
 def draw_request(data):
-    data['time_stamp'] = time.strftime('%I:%M%p', time.localtime())
     sio.emit('display-draw-request', data, to = session['room'], namespace = "/game")
 
 @sio.on("rematch_request", namespace = "/game")
 def rematch_request(data):
-    data['time_stamp'] = time.strftime('%I:%M%p', time.localtime())
     sio.emit('display-rematch-request', data, to = session['room'], namespace = "/game")
 
-
-
+@sio.on("play_move_sound", namespace = "/game")
+def play_move_sound(move_string):
+    print(move_string)
+    if "#" in move_string:
+        sio.emit('play-sound', "over", to = session['room'], namespace = "/game")
+    elif "+" in move_string:
+        sio.emit('play-sound', "check", to = session['room'], namespace = "/game")
+    elif "-" in move_string:
+        sio.emit('play-sound', "castle", to = session['room'], namespace = "/game")
+    elif "x" in move_string:
+        sio.emit('play-sound', "capture", to = session['room'], namespace = "/game")
+    else:
+        sio.emit('play-sound', "move", to = session['room'], namespace = "/game")
 
 ###################
 # CHAT EVENTS #
@@ -286,32 +320,8 @@ def join():
 @sio.on("chat_msg", namespace = '/chat')
 def chat_msg(msg):
     if msg:
-        sio.emit('chat-msg', {"msg": msg, "time_stamp": time.strftime('%I:%M%p', time.localtime())}, to = session['room'], namespace = "/chat")
+        sio.emit('chat-msg', msg, to = session['room'], namespace = "/chat")
 
-
-# @sio.event
-# def disconnect():
-#     """
-#     triggered when client disconnects to SocketIO
-#     user is removed from their room, and the disconnect flag is set to True in case they come back within 20 seconds
-
-#     :return: None
-#     """
-#     if session.get('room'):
-#         time_stamp = time.strftime('%b-%d %I:%M%p', time.localtime())
-#         sio.emit('incoming-status-msg', {"msg": session["username"] + " has left room " + session["room"] , 'time_stamp': time_stamp}, to = session["room"])
-#         leave_room(session["room"])
-#         room_row = db.session.query(Room).filter_by(room = session['room']).first()
-#         if not room_row:
-#             sio.emit('route-index', to = request.sid)
-#         elif session['username'] == room_row.user1:
-#             room_row.user1_connect = False
-#         elif session['username'] == room_row.user2:
-#             room_row.user2_connect = False
-#         db.session.commit()
-#     else:
-#         sio.emit('route-index', to = request.sid)
-#     print(request.sid, ' disconnected')
 
 # @sio.event
 # def close_room():
@@ -344,43 +354,6 @@ def chat_msg(msg):
 #         else:
 #             sio.emit('receive-ping', False, to = request.sid)
 
-
-# @sio.event
-# def new_game():
-#     """
-#     initializes a new game by switching sides and updating the UI + db
-
-#     :return: None
-#     """
-#     room_row = db.session.query(Room).filter_by(room = session['room']).first()
-#     if not room_row:
-#         sio.emit('route-index', to = request.sid)
-#         return
-#     room_row.user1_side = flip_side(room_row.user1_side)
-#     room_row.user2_side = flip_side(room_row.user2_side)
-#     room_row.fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
-#     room_row.move_log = ''
-#     room_row.live = True
-#     db.session.commit()
-#     sio.emit('update-ui', {col.name: getattr(room_row, col.name) for col in room_row.__table__.columns}, to = session['room'])
-
-# @sio.event
-# def update(data):
-#     room_row = db.session.query(Room).filter_by(room = session['room']).first()
-#     room_row.fen = data['fen']
-#     room_row.move_log += str(data['move'][0]) + '/' # separator
-#     if data['user'] == room_row.user1: # user1 just made a move
-#         room_row.user1_last_move = datetime.fromisoformat(data['timestamp'].replace('Z', ""))
-#         room_row.user1_time_left -= (room_row.user2_last_move - room_row.user1_last_move) + timedelta(seconds = int(room_row.increment))
-#     elif data['user'] == room_row.user2:
-#         room_row.user2_last_move = datetime.fromisoformat(data['timestamp'].replace('Z', ""))
-#         room_row.user2_time_left -= (room_row.user1_last_move - room_row.user2_last_move) + timedelta(seconds = int(room_row.increment))
-#     db.session.commit()
-#     sio.emit('update-db-values', {col.name: getattr(room_row, col.name) for col in room_row.__table__.columns}, to = session['room'])
-#     sio.emit('update-board', data, to = session['room']) # should this only be sent to the user joining
-
-# generates a unique 4-letter word from words.txt
-# test this works
 def generate_key():
     lines = set()
     while True:

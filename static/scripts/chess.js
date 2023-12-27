@@ -173,8 +173,8 @@ socket.on('game-gameinfo', data => {
         timer.stop();
     }
     setTimers();
-    document.getElementById("score").innerHTML = score;
-    document.getElementById("opp_score").innerHTML = opp_score;
+    document.getElementById("score").innerHTML = " (" + score + ")";
+    document.getElementById("opp_score").innerHTML = " (" + opp_score + ")";
 
     console.log(fen);
     console.log(move_log);
@@ -187,33 +187,49 @@ socket.on('game-gameinfo', data => {
 socket.on('display-draw-request', data => {
     if (username == data['recipient']) {
         let p = document.createElement("p");
-        p.classList.add('odd:text-black', 'ml-4');
-        p.innerText = "[" + data['time_stamp'] + "] " + opp_username + " has requested a draw. Accept?";
+        p.classList.add('ml-2');
+        p.innerText = opp_username + " has requested a draw. Accept?";
         let chatLog = document.getElementById("chat-box")
         chatLog.appendChild(p);
-        chatLog.innerHTML += '<div class = "flex justify-start space-x-2"><button type = "button" id = "draw-accept" class = "bg-white text-black rounded-full border-black border-2 px-2 ml-4">Yes</button><button type = "button" id = "draw-reject" class = "bg-white text-black rounded-full border-black border-2 px-2">No</button></div>'
+        chatLog.innerHTML += '<div class = "flex justify-start space-x-2"><button type = "button" id = "draw-accept" class = "bg-white text-black rounded-full border-black border-2 px-2 ml-2">Yes</button><button type = "button" id = "draw-reject" class = "bg-white text-black rounded-full border-black border-2 px-2">No</button></div>'
         chatLog.scrollTop = chatLog.scrollHeight;
 
         document.getElementById("draw-accept").addEventListener("click", triggerDraw);
         document.getElementById("draw-reject").addEventListener("click", triggerDrawReject);
-
     }
 });
 
 socket.on('display-rematch-request', data => {
     if (username == data['recipient']) {
         let p = document.createElement("p");
-        p.classList.add('odd:text-black', 'ml-4');
-        p.innerText = "[" + data['time_stamp'] + "] " + opp_username + " has requested a rematch. Accept?";
+        p.classList.add('ml-2');
+        p.innerText = opp_username + " has requested a rematch. Accept?";
         let chatLog = document.getElementById("chat-box")
         chatLog.appendChild(p);
-        chatLog.innerHTML += '<div class = "flex justify-start space-x-2"><button type = "button" id = "rematch-accept" class = "bg-white text-black rounded-full border-black border-2 px-2 ml-4">Yes</button><button type = "button" id = "rematch-reject" class = "bg-white text-black rounded-full border-black border-2 px-2">No</button></div>'
+        chatLog.innerHTML += '<div class = "flex justify-start space-x-2"><button type = "button" id = "rematch-accept" class = "bg-white text-black rounded-full border-black border-2 px-2 ml-2">Yes</button><button type = "button" id = "rematch-reject" class = "bg-white text-black rounded-full border-black border-2 px-2">No</button></div>'
         chatLog.scrollTop = chatLog.scrollHeight;
 
         document.getElementById("rematch-accept").addEventListener("click", triggerRematch);
         document.getElementById("rematch-reject").addEventListener("click", triggerRematchReject);
-
     }
+});
+
+socket.on('play-sound', flag => {
+    let audioElement = new Audio();
+    if (flag == "move") {
+        audioElement = new Audio("./../static/audio/chess_piece_move.mp3");
+    } else if (flag == "start") {
+        audioElement = new Audio("./../static/audio/chess_game_start.mp3");
+    } else if (flag == "over") {
+        audioElement = new Audio("./../static/audio/chess_game_over.mp3");
+    } else if (flag == "capture") {
+        audioElement = new Audio("./../static/audio/chess_piece_capture.mp3");
+    } else if (flag == "check") {
+        audioElement = new Audio("./../static/audio/chess_check.mp3");
+    } else if (flag == "castle") {
+        audioElement = new Audio("./../static/audio/chess_castle.mp3");
+    }
+    audioElement.play();
 });
 
 // ###################
@@ -271,7 +287,8 @@ function updateGameLog() {
         for (let i = gameLogLength; i < moveArray.length; i++) {
             console.log(moveArray[i]);
             let p = document.createElement('p');
-            p.classList.add('odd:text-black', 'flex-[50%]', 'pl-2');
+            // p.classList.add('odd:text-black', 'flex-[50%]', 'pl-2');
+            p.classList.add('flex-[50%]', 'pl-2');
             if (i % 2 == 0) {
                 p.innerHTML = (Math.floor(i / 2) + 1).toString() + ". ";
             }
@@ -357,7 +374,9 @@ function onDragStart (source, piece, position, orientation) {
         console.log("error making move");
         return 'snapback';
     }
-    socket.emit('make_move', {"move": game.history().slice(-1), "fen": game.fen(), "user": username, "increment": increment});
+    let move_string = game.history().slice(-1);
+    socket.emit('make_move', {"move": move_string, "fen": game.fen(), "user": username, "increment": increment});
+    socket.emit('play_move_sound', move_string[0]);
     checkGameOver();
   }
 
@@ -395,7 +414,7 @@ function onDragStart (source, piece, position, orientation) {
 
   function setTimers() {
     timer.addEventListener('secondsUpdated', function (e) {
-        $('#time_left').html(timer.getTimeValues().toString());
+        $('#time_left').html(timer.getTimeValues().toString()); // BEAUTIFY THIS STRING HERE 
     });
     opp_timer.addEventListener('secondsUpdated', function (e) {
         $('#opp_time_left').html(opp_timer.getTimeValues().toString());

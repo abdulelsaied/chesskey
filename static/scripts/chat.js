@@ -5,6 +5,8 @@ socket.on('connect', () => {
     socket.emit('join'); 
 });
 
+let chatLog = document.getElementById("chat-box");
+
 let chat_box = document.getElementById("user_message");
 chat_box.addEventListener('keypress', function(event) {
     if (event.key == "Enter") {
@@ -13,12 +15,11 @@ chat_box.addEventListener('keypress', function(event) {
     }
 });
 
-socket.on('chat-msg', data => {
-    if (data['msg']){
+socket.on('chat-msg', msg => {
+    if (msg){
         const p = document.createElement("p");
-        p.classList.add('odd:text-black', 'ml-4');
-        p.innerText = "[" + data['time_stamp'] + "] " + data['msg'];
-        let chatLog = document.getElementById("chat-box")
+        p.classList.add('ml-2');
+        p.innerText = msg;
         chatLog.appendChild(p);
         chatLog.scrollTop = chatLog.scrollHeight;
     }
