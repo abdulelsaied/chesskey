@@ -24,23 +24,48 @@
       Copy to clipboard
       <div class="tooltip-arrow" data-popper-arrow></div>
     </div>
-    <div class="flex container mx-auto w-4/5 h-[80vh] space-x-6 border-white border-2">
-      <div class="flex flex-col basis-1/2">
+    <!-- do i need container -->
+    <div class="flex container justify-center mx-auto w-[80vw] h-[80vh] space-x-2">
+
+      <div class = "flex flex-col grow justify-center space-y-4 ">
+
+        <div class = "rounded-3xl  h-2/5 border-white border-4 flex flex-col">
+          <h3 class= "text-xl font-bold bg-purple-500 rounded-t-2xl text-white text-center" style = "border-top-left-radius: 1.25rem; border-top-right-radius: 1.25rem;">Game Log</h3>
+          <div id = "game-log" class = "flex flex-wrap overflow-auto text-white font-bold"></div>
+        </div>
+
+        <div class = "flex flex-col h-1/5 border-white border-4 rounded-3xl text-xl font-bold text-white text-center justify-center">
+          <h3>Current Score</h3>
+          <h3>0 - 0</h3>
+        </div>
+        
+      </div>
+
+
+
+      <div class="flex flex-col mx-auto">
         <div class = "flex gap-x-4 justify-between items-center">
           <h3 id = "opp_username" class = "text-white font-bold"></h3>
           <h3 id = "opp_time_left" class = "text-white font-bold bg-gray-500  border-2 border-white p-1 rounded-lg w-32 text-center"></h3>
         </div>
-        <div id = "board1" class = ""></div>
+        <div id = "board1" class = "">
+          <h1 class = "absolute inset-x-0 top-0">Hi</h1>
+        </div>
         <div class = "flex gap-x-4 justify-between items-center">
           <h3 id = "username" class = "text-white font-bold"></h3>
           <h3 id = "time_left" class = "text-white font-bold bg-gray-500  border-2 border-white p-1 rounded-lg w-32 text-center"></h3>
         </div>
       </div>
-      <div class="basis-1/2 flex flex-col space-y-4">
-        <div class = "h-2/5 rounded-3xl border-white border-4 flex flex-col">
-          <h3 class= "text-xl font-bold bg-purple-500 rounded-t-2xl text-white dark:text-white text-center" style = "border-top-left-radius: 1.25rem; border-top-right-radius: 1.25rem;">Game Log</h3>
-          <div id = "game-log" class = "flex flex-wrap overflow-auto text-white font-bold">
-          </div>
+
+
+
+
+      <div class = "flex flex-col justify-center grow space-y-4">
+
+        <div class = "game-chat h-2/5 rounded-3xl border-white border-4 flex flex-col text-white">
+          <h3 class= "text-xl font-bold bg-purple-500 rounded-t-2xl text-white dark:text-white text-center" style = "border-top-left-radius: 1.25rem; border-top-right-radius: 1.25rem;">Chat</h3>
+          <div id = "chat-box" class = "log-container flex flex-col text-white overflow-auto"></div>
+          <input type="text" id="user_message" class="mt-auto w-full self-end rounded-br-xl ring-0 outline-none border-none rounded-bl-xl text-black placeholder-black focus:outline-none focus:ring-0 focus:border-none" placeholder="Send a message..." autocomplete="off">
         </div>
 
         <div class = "middle-section h-1/5 bg-purple-500 rounded-3xl border-white border-4 flex flex-col text-white">
@@ -89,12 +114,10 @@
           </div>
         </div>
 
-        <div class = "game-chat h-2/5 rounded-3xl border-white border-4 flex flex-col text-white">
-          <h3 class= "text-xl font-bold bg-purple-500 rounded-t-2xl text-white dark:text-white text-center" style = "border-top-left-radius: 1.25rem; border-top-right-radius: 1.25rem;">Chat</h3>
-          <div id = "chat-box" class = "log-container flex flex-col text-white overflow-auto"></div>
-          <input type="text" id="user_message" class="mt-auto w-full self-end rounded-br-xl ring-0 outline-none border-none rounded-bl-xl text-black placeholder-black focus:outline-none focus:ring-0 focus:border-none" placeholder="Send a message..." autocomplete="off">
-        </div>
       </div>
+
+
+
     </div>
 
     <button type = "button" id = "usernameButton" class="hidden" data-modal-target="usernameModal" data-modal-toggle="usernameModal"></button>
