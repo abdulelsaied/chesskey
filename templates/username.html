@@ -1,37 +1,75 @@
 <!doctype html>
 <html>
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel = "stylesheet" type = "text/css" href = "{{ url_for('static', filename = 'css/chessboard.css') }}">
-  <link rel = "icon" href="data:,">
-  <link href = "https://cdnjs.cloudflare.com/ajax/libs/flowbite/1.8.1/flowbite.min.css" rel="stylesheet"/>
-  <link href = "./../static/css/output.css" rel="stylesheet">
-  <!-- <script src="https://cdn.tailwindcss.com"></script> -->
-</head>
-<body class = "bg-[#201b22]">
-    <div id="createModal" tabindex="-1" aria-hidden="true" class="flex fixed top-0 left-0 right-0 z-50 w-full overflow-x-hidden overflow-y-auto md:inset-0 h-[calc(100%-1rem)] max-h-full"> 
-        <div class="relative w-full max-w-fit m-auto max-h-full">
-            <!-- Modal content -->
-            <div class="relative bg-purple-600 rounded-lg">
-                <div class="px-4 py-8">
-                    <h3 class= "text-xl font-bold text-white text-center">Set Username</h3>
-                    <hr class="h-px my-4 bg-white border-0">
-                    <form method = "post" class="space-y-4">
-                        <div>
-                            <label for = "text" class = "block mb-2 text-xl font-bold text-white">username:</label>
-                            <input type = "text" name = "username" class="text-white text-sm bg-purple-600 border border-white rounded-lg block w-full p-2.5 focus:ring-white focus:border-white" placeholder="" autocomplete = "off" required minlength = "1" maxlength = "15">
-                            <p id="helper-text-explanation" class="mt-2 text-sm text-white dark:text-gray-400">1 to 15 characters required.</p>
-                        </div>
-                
-                        <div class = "flex justify-center space-x-4">
-                            <button type = "submit" name = "usernameSubmit" class = "p-2 bg-white text-purple-600 hover:text-purple-900 font-bold rounded-lg text-sm px-5 py-2.5">Join Game!</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="{{ url_for('static', filename = 'css/chessboard.css') }}"
+    />
+    <link rel="icon" href="data:," />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/1.8.1/flowbite.min.css"
+      rel="stylesheet"
+    />
+    <link href="./../static/css/output.css" rel="stylesheet" />
+    <!-- <script src="https://cdn.tailwindcss.com"></script> -->
+  </head>
+  <body class="bg-[#201A23]">
+    <div
+      id="createModal"
+      tabindex="-1"
+      aria-hidden="true"
+      class="flex fixed top-0 left-0 right-0 z-50 w-full overflow-x-hidden overflow-y-auto md:inset-0 h-[calc(100%-1rem)] max-h-full"
+    >
+      <div class="relative w-full max-w-fit m-auto max-h-full">
+        <!-- Modal content -->
+        <div class="relative bg-[#8a4fff] rounded-lg">
+          <div class="px-4 py-8">
+            <h3 class="text-xl font-bold text-white text-center">
+              Set Username
+            </h3>
+            <hr class="h-px my-4 bg-white border-0" />
+            <form method="post" class="space-y-4">
+              <div>
+                <label
+                  for="text"
+                  class="block mb-2 text-xl font-bold text-white"
+                  >username:</label
+                >
+                <input
+                  type="text"
+                  name="username"
+                  class="text-white text-sm bg-[#8a4fff] border border-white rounded-lg block w-full p-2.5 focus:ring-white focus:border-white"
+                  placeholder=""
+                  autocomplete="off"
+                  required
+                  minlength="1"
+                  maxlength="15"
+                />
+                <p
+                  id="helper-text-explanation"
+                  class="mt-2 text-sm text-white dark:text-gray-400"
+                >
+                  1 to 15 characters required.
+                </p>
+              </div>
+
+              <div class="flex justify-center space-x-4">
+                <button
+                  type="submit"
+                  name="usernameSubmit"
+                  class="p-2 bg-white text-[#8a4fff] hover:text-purple-600 font-bold rounded-lg text-sm px-5 py-2.5"
+                >
+                  Join Game!
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
-    </div> 
-</body>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/1.8.1/flowbite.min.js"></script>
+      </div>
+    </div>
+  </body>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/1.8.1/flowbite.min.js"></script>
 </html>

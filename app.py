@@ -36,6 +36,8 @@ def index():
             session['room'] = generate_key()
             session['username'] = request.form.get("username")
             user1_side = random.choice(["white", "black"]) if request.form.get("side") == "random" else request.form.get("side")
+            if not user1_side:
+                user1_side = "white"
             room = Rooms(
                 room = session['room'],
                 user1 = session['username'],
@@ -45,7 +47,7 @@ def index():
                 room = session['room'],
                 user1_side = user1_side,
                 user2_side = flip_side(user1_side),
-                time_control = request.form.get("time_control"),
+                time_control = request.form.get("time_control") if request.form.get("time_control") != "0" else "1",
                 increment = request.form.get("increment")
             )
             db.session.add(room)
@@ -147,7 +149,7 @@ def join():
         print(session['room'] + " is not a room")
         return
     join_room(session['room'])
-    sio.emit('chat-msg', session["username"] + " has joined room " + session["room"], to = session['room'], namespace = "/chat")
+    sio.emit('chat-msg', {"msg": session["username"] + " has joined room " + session["room"], "sender": "ChessKey"}, to = session['room'], namespace = "/chat")
     connection_row = db.session.query(Connection).filter_by(room = session['room']).first()
     roominfo_row = db.session.query(RoomInfo).filter_by(room = session['room']).first()
     if connection_row:
@@ -156,7 +158,7 @@ def join():
         elif session['username'] == room_row.user2:
             connection_row.user2_connect = True
         if connection_row.live == "init" and (connection_row.user1_connect == True and connection_row.user2_connect == True):
-            sio.emit('chat-msg', "Game has begun!", to = session['room'], namespace = "/chat")
+            sio.emit('chat-msg', {"msg": "Game has begun!", "sender": "ChessKey"}, to = session['room'], namespace = "/chat")
             sio.emit('play-sound', "start", to = session['room'], namespace = "/game")
             connection_row.live = "live"
             time_control = roominfo_row.time_control
@@ -206,11 +208,13 @@ def make_move(data):
         game_row.user1_last_move = datetime.datetime.now(timezone.utc)
         game_row.user1_time_left = game_row.user1_time_left - (datetime.datetime.now(timezone.utc) - game_row.user2_last_move.replace(tzinfo = timezone.utc)) + timedelta(seconds = int(data['increment']))
         if game_row.user1_time_left < timedelta(0):
+            game_row.user1_time_left = timedelta(0)
             game_over({"flag": 1, "side": roominfo_row.user2_side, "reason": "by timeout"})
     elif data['user'] == room_row.user2:
         game_row.user2_last_move = datetime.datetime.now(timezone.utc)
-        game_row.user2_time_left = game_row.user2_time_left - (datetime.datetime.now(timezone.utc) - game_row.user1_last_move.replace(tzinfo = timezone.utc)) + timedelta(seconds = int(data['increment']))
+        game_row.user2_time_left = game_row.user2_time_left - (datetime.datetime.now(timezone.utc) - game_row.user1_last_move.replace(tzinfo = timezone.utc)) + timedelta(seconds = int(data['increment'])) 
         if game_row.user2_time_left < timedelta(0):
+            game_row.user2_time_left = timedelta(0)
             game_over({"flag": 1, "side": roominfo_row.user1_side, "reason": "by timeout"})
     db.session.commit()
 
@@ -240,8 +244,9 @@ def game_over(data):
     game_dict = {col.name: getattr(game_row, col.name) for col in game_row.__table__.columns}
     game_dict.update({"user1": room_row.user1})
 
+    sio.emit('game-connection', {"live": "over", "side": data['side'], "reason": data['reason'], "flag": data['flag']}, to = session['room'], namespace = "/game") 
     sio.emit('game-gameinfo', json.dumps(game_dict, default = str), to = session['room'], namespace = "/game")
-    sio.emit('game-connection', {"live": connection_row.live, "side": data['side'], "reason": data['reason'], "flag": data['flag']}, to = session['room'], namespace = "/game") 
+    sio.emit('chat-msg', {"msg": data['side'] + " has won " + data['reason'], "sender": "ChessKey"}, to = session['room'], namespace = "/chat")
 
 @sio.on("new_game", namespace = "/game")
 def new_game():
@@ -275,6 +280,7 @@ def new_game():
     sio.emit('game-roominfo', {"user1": room_row.user1, "user2": room_row.user2, "user1_side": roominfo_row.user1_side, "user2_side": roominfo_row.user2_side, "time_control": str(timedelta(minutes = int(roominfo_row.time_control))), "increment": roominfo_row.increment}, to = session['room'], namespace = "/game")
     sio.emit('game-gameinfo', json.dumps(game_dict, default = str), to = session['room'], namespace = "/game")
     sio.emit('game-connection', {"live": connection_row.live}, to = session['room'], namespace = "/game") 
+    sio.emit('chat-msg', {"msg": "Game has begun!", "sender": "ChessKey"}, to = session['room'], namespace = "/chat")
 
     sio.emit('play-sound', "start", to = session['room'], namespace = "/game")
 
@@ -320,7 +326,7 @@ def join():
 @sio.on("chat_msg", namespace = '/chat')
 def chat_msg(msg):
     if msg:
-        sio.emit('chat-msg', msg, to = session['room'], namespace = "/chat")
+        sio.emit('chat-msg', {"msg": msg, "sender": session['username']}, to = session['room'], namespace = "/chat")
 
 
 # @sio.event
