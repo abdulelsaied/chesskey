@@ -77,6 +77,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("time_left").innerHTML = time_control; // edit this to look like the easyTimer start value
     document.getElementById("opp_time_left").innerHTML = time_control;
     board.orientation(side);
+    easterEgg();
     console.log(side);
   });
 
@@ -493,6 +494,24 @@ document.addEventListener("DOMContentLoaded", () => {
   function stopTimers() {
     timer.stop();
     opp_timer.stop();
+  }
+
+  function easterEgg() {
+    let userElem = document.getElementById("scoreboard");
+    let oppElem = document.getElementById("opp_scoreboard"); 
+    console.log(userElem.innerHTML);
+    console.log(oppElem.innerHTML);
+    let easterEggValues = {"ellie": true, "ellie <3": true};
+    if (userElem.innerHTML in easterEggValues) {
+      console.log("easter");
+      userElem.style.color = "#00A36C";
+      document.getElementById("username").style.color = "#00A36C";
+    }
+    if (oppElem.innerHTML in easterEggValues) {
+      console.log("easter");
+      oppElem.style.color = "#00A36C";
+      document.getElementById("opp_username").style.color = "#00A36C";
+    }
   }
 
   let link_elem = document.getElementById("link");
